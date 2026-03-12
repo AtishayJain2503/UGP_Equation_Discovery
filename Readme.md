@@ -1,85 +1,102 @@
-# Equation Discovery Benchmarks for Nonlinear Dynamical Systems
+# Equation Discovery Benchmark Framework for Nonlinear Dynamical Systems
 
-This repository contains a modular benchmarking framework for evaluating **equation discovery and system identification methods** on nonlinear dynamical systems of increasing complexity.
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![SciML](https://img.shields.io/badge/Field-SciML-red.svg)](https://sciml.ai/)
 
-The primary motivation is to understand **where existing methods succeed, where they fail, and why**, particularly for systems with:
-- strong nonlinearities
-- external forcing
-- limit cycles
-- hysteresis and memory effects
-
-This project is developed as part of an undergraduate research project, with the long-term goal of exploring **machine learning–based approaches for discovering governing equations beyond current limits**.
+A modular benchmarking framework designed to systematically evaluate **Equation Discovery** and **System Identification** methodologies across a spectrum of nonlinear dynamical regimes.
 
 ---
 
-## 🔍 Problem Motivation
+##  Abstract
 
-Equation discovery methods such as:
-- Sparse Identification of Nonlinear Dynamics (SINDy)
-- Symbolic regression
-- Bayesian sparse learning
+The primary objective of this project is to evaluate the efficacy, limitations, and failure boundaries of modern **Scientific Machine Learning (SciML)** algorithms. While existing methods excel in idealized, low-dimensional settings, their performance often degrades when encountering:
+* Strong nonlinearities and non-polynomial forces.
+* External periodic forcing and non-autonomous dynamics.
+* Limit cycles, hysteresis (memory effects), and chaotic attractors.
 
-have shown strong performance on **low-dimensional, memoryless systems**.
-
-However, real-world mechanical and structural systems often involve:
-- nonlinear damping and stiffness
-- bifurcations and chaos
-- hysteresis and internal state variables (memory)
-
-This repository focuses on **systematically benchmarking** these methods on progressively harder systems to identify **failure modes and performance boundaries**.
+This repository provides a controlled, scalable environment to test state-of-the-art algorithms—such as **SINDy, PySR, and Neural ODEs**—under progressively complex dynamical challenges. Developed as part of an undergraduate research initiative, it aims to bridge the gap between automated law extraction and real-world physical complexity.
 
 ---
 
-## 📐 Benchmark Systems
-
-The following canonical dynamical systems are currently implemented:
-
-| ID | System | Key Features |
-|----|-------|--------------|
-| A2 | Damped Harmonic Oscillator | Linear, dissipative |
-| B2 | Nonlinear Oscillator | Polynomial nonlinearity |
-| C2 | Large-Angle Pendulum | Strong nonlinearity (sin θ) |
-| D1 | Forced Duffing Oscillator | Nonlinearity + external forcing |
-| E1 | Van der Pol Oscillator | Limit cycle, nonlinear damping |
-| F1 | Minimal Bouc–Wen Model | Hysteresis, internal memory |
-
-These systems are chosen to represent a **controlled increase in modeling difficulty**, culminating in hysteretic dynamics.
+##  Table of Contents
+* [Problem Motivation](#-problem-motivation)
+* [Benchmark Systems](#-benchmark-systems)
+* [Equation Discovery Methodologies](#-equation-discovery-methodologies)
+* [System Architecture](#-system-architecture)
+* [Evaluation Metrics](#-evaluation-metrics)
+* [Installation & Usage](#-installation--usage)
+* [Research Applications](#-research-applications)
 
 ---
 
-## 🧠 Methods (Current & Planned)
+##  Problem Motivation
 
-### Currently
-- High-fidelity numerical simulation (ground truth data)
-- Phase portraits and trajectory visualization
-- Baseline evaluation using SINDy (PySINDy)
+Modern SciML paradigms often operate under the assumption of polynomial basis expansions and Markovian state transitions. However, real-world systems present significant hurdles:
 
-### Planned
-- Physics-informed sparse regression
-- Memory-augmented libraries
-- Neural ODE / transformer-based equation discovery
-- Symbolic latent-space search methods
+1.  **Nonlinear Stiffness/Damping:** Deviations from standard harmonic assumptions.
+2.  **Transcendentals:** Trigonometric or exponential restoring forces.
+3.  **Non-Autonomous Dynamics:** Time-dependent external forcing functions.
+4.  **Chaos:** High sensitivity to initial conditions and phase space folding.
+5.  **Internal State Variables:** Hysteresis and history-dependent forces.
+
+This framework isolates these phenomena to determine exactly where specific algorithms succeed or fail.
 
 ---
 
-## 🗂️ Project Structure
+##  Benchmark Systems
 
+The corpus consists of canonical systems curated to strictly isolate mathematical complexities. *(Note: Equations are represented using prime notation `x'` for first derivatives and `x''` for second derivatives to ensure cross-platform markdown compatibility).*
+
+| ID | System | Governing Equation | Primary Challenge |
+|:---|:---|:---|:---|
+| **A2** | Damped Harmonic Oscillator | `x'' + cx' + kx = 0` | Baseline linear dynamics |
+| **B2** | Large-Angle Pendulum | `θ'' + ω² sin(θ) = 0` | Non-polynomial transcendentals |
+| **C2** | Duffing Oscillator | `x'' + δx' + αx + βx³ = 0` | Nonlinear polynomial stiffness |
+| **D1** | Forced Duffing | `x'' + δx' + αx + βx³ = γ cos(ωt)` | External forcing |
+| **E1** | Van der Pol | `x'' - μ(1 - x²)x' + x = 0` | Limit cycles |
+| **F1** | Bouc–Wen Model | `x'' + cx' + kx + αz = 0` | Hysteresis / Hidden states |
+| **G1** | Lorenz System | `x' = σ(y - x)` <br> `y' = x(ρ - z) - y` <br> `z' = xy - βz` | 3D Chaos & Sensitivity |
+| **G2** | Rössler System | `x' = -y - z` <br> `y' = x + ay` <br> `z' = b + z(x - c)` | Phase space folding |
+
+---
+
+##  Equation Discovery Methodologies
+
+The framework supports **192 discrete experiments** (8 Methods × 8 Systems × 3 Noise Levels).
+
+| ID | Methodology | Algorithmic Category |
+|:---|:---|:---|
+| **M1** | SINDy (Polynomial Library) | Sparse Regression |
+| **M2** | SINDy (Custom Library) | Physics-Informed Sparse Regression |
+| **M3** | Bayesian SINDy | Probabilistic Sparse Learning |
+| **M4** | Symbolic Regression (PySR) | Genetic Evolutionary Search |
+| **M5** | Neural ODE | Neural Dynamical Systems |
+| **M6** | Physics-Informed Neural Network (PINN) | Neural Physics Modeling |
+| **M7** | Grammar-Constrained Symbolic Reg. | Restricted Domain Symbolic Search |
+| **M8** | Physics-Informed Spline + Sparse | Noise-Robust Sparse Regression |
+
+---
+
+##  System Architecture
+
+The project employs a modular execution flow to ensure reproducibility and ease of extension.
+
+### Execution Pipeline
+1.  **Physics Layer:** RK45 Integration of ground truth dynamics.
+2.  **Dataset Generation:** Noise injection (0%, 2%, 5%).
+3.  **Discovery Module:** Execution of algorithmic wrappers (SINDy, PySR, etc.).
+4.  **Rollout Layer:** Forward numerical simulation of discovered equations.
+5.  **Evaluation Layer:** Calculation of metrics and statistical aggregation.
+
+### Directory Structure
 ```text
-.
-├── equations/          # Dynamical system definitions (physics + ODEs)
-│   ├── base.py
-│   ├── damped_oscillator.py
-│   ├── duffing.py
-│   ├── van_der_pol.py
-│   └── bouc_wen.py
-│
-├── experiments/        # Reproducible experiment scripts
-│   ├── run_a2.py
-│   ├── run_d1.py
-│   ├── run_e1.py
-│   └── run_f1.py
-│
-├── utils/              # Plotting and helper utilities
-│
-├── README.md
-└── .gitignore
+UGP_Equation_Discovery/
+├── physics/          # Ground truth systems (A2 to G2)
+├── discovery/        # Algorithmic wrappers for SINDy, PySR, PINNs
+├── evaluation/       # Scoring, Rollout, and Complexity metrics
+├── registry/         # Centralized mapping for automation
+├── experiments/      # Main execution scripts
+├── analysis/         # Visualization and reporting tools
+├── data/             # Generated noisy/clean trajectories (.npz)
+└── results/          # Output metrics, plots, and CSV summaries

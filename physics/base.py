@@ -1,35 +1,28 @@
-# physics/base.py
 from abc import ABC, abstractmethod
 import numpy as np
+from scipy.integrate import solve_ivp
+
 
 class DynamicalSystem(ABC):
-    """
-    Abstract base class for all continuous-time dynamical systems.
-    """
+    is_autonomous = True
+    has_memory = False
 
-    @property
     @abstractmethod
-    def name(self) -> str:
-        pass
-
-    @property
-    @abstractmethod
-    def dimension(self) -> int:
-        pass
-
-    @property
-    @abstractmethod
-    def state_names(self) -> list:
+    def rhs(self, t, x):
         pass
 
     @abstractmethod
-    def parameters(self) -> dict:
+    def initial_conditions(self):
         pass
 
-    @abstractmethod
-    def initial_conditions(self) -> np.ndarray:
-        pass
-
-    @abstractmethod
-    def rhs(self, t: float, x: np.ndarray) -> np.ndarray:
-        pass
+    def simulate(self, t):
+        x0 = self.initial_conditions()
+        sol = solve_ivp(
+            self.rhs,
+            (t[0], t[-1]),
+            x0,
+            t_eval=t,
+            rtol=1e-8,
+            atol=1e-8,
+        )
+        return sol.y.T
