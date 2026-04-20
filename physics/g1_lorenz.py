@@ -10,6 +10,10 @@ class G1Lorenz(DynamicalSystem):
         self.rho = rho
         self.beta = beta
 
+    @property
+    def true_equation(self):
+        return f"x0_dot = {self.sigma:.4f} * (x1 - x0)\nx1_dot = x0 * ({self.rho:.4f} - x2) - x1\nx2_dot = x0 * x1 - {self.beta:.4f} * x2"
+
     def rhs(self, t, x):
 
         dx = self.sigma * (x[1] - x[0])

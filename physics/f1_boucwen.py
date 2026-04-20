@@ -5,15 +5,26 @@ from physics.base import DynamicalSystem
 class F1BoucWen(DynamicalSystem):
     has_memory = True
 
-    def __init__(self, A=1.0, beta=0.5, gamma=0.5):
+    def __init__(self, omega=1.0, zeta=0.1, alpha=0.5, A=1.0, beta=0.5, gamma=0.5):
+        self.omega = omega
+        self.zeta = zeta
+        self.alpha = alpha
         self.A = A
         self.beta = beta
         self.gamma = gamma
 
+    @property
+    def true_equation(self):
+        return f"x0_dot = x1\nx1_dot = -{self.omega**2:.4f} * x0 - {self.zeta:.4f} * x1 - {self.alpha:.4f} * x2\nx2_dot = {self.A:.4f} * x1 - {self.beta:.4f} * abs(x1) * x2 - {self.gamma:.4f} * x1 * abs(x2)"
+
     def rhs(self, t, x):
-        u, z = x
-        dz = self.A * u - self.beta * abs(u) * z - self.gamma * u * abs(z)
-        return [z, dz]
+        u, v, z = x
+
+        du = v
+        dv = -self.omega**2 * u - self.zeta * v - self.alpha * z
+        dz = self.A * v - self.beta * abs(v) * z - self.gamma * v * abs(z)
+
+        return [du, dv, dz]
 
     def initial_conditions(self):
-        return [0.1, 0.0]
+        return [1.0, 0.0, 0.0]

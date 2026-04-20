@@ -10,6 +10,10 @@ class B2LargeAnglePendulum(DynamicalSystem):
         self.L = L
         self.c = c
 
+    @property
+    def true_equation(self):
+        return f"x0_dot = x1\nx1_dot = -{self.g/self.L:.4f} * sin(x0) - {self.c:.4f} * x1"
+
     def rhs(self, t, x):
         theta, omega = x
 

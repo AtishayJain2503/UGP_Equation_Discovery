@@ -21,16 +21,23 @@ class SINDyPoly(DiscoveryMethod):
     def simulate(self, x0, t):
 
         try:
-            Xp = self.model.simulate(x0, t)
+            # Use RK45 which is pure Python and won't crash the interpreter like Fortran LSODA
+            Xp = self.model.simulate(
+                x0, t, 
+                integrator="solve_ivp", 
+                integrator_kws={'method': 'RK45'}
+            )
 
             if np.any(np.isnan(Xp)) or np.any(np.abs(Xp) > 1e6):
                 return None
 
             return Xp
 
-        except:
+        except Exception as e:
             return None
 
     def equations(self):
 
-        return "\n".join(self.model.equations())
+        # Use precision=6 to avoid suppressing small but real coefficients
+        eqs = self.model.equations(precision=6)
+        return "\n".join(eqs)

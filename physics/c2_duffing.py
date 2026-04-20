@@ -10,6 +10,10 @@ class C2DampedDuffing(DynamicalSystem):
         self.alpha = alpha
         self.beta = beta
 
+    @property
+    def true_equation(self):
+        return f"x0_dot = x1\nx1_dot = {-self.delta:.4f} * x1 - {self.alpha:.4f} * x0 - {self.beta:.4f} * x0^3"
+
     def rhs(self, t, x):
         position, velocity = x
 

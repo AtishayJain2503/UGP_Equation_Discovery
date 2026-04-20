@@ -6,6 +6,7 @@ from discovery.neural_ode import NeuralODE
 from discovery.pinn import PINNMethod
 from discovery.symbolic_grammar import GrammarSymbolic
 from discovery.pisf import PISFMethod
+from discovery.sindy_ensemble import SINDyEnsemble
 from physics.g1_lorenz import G1Lorenz
 from physics.g2_rossler import G2Rossler
 
@@ -18,4 +19,5 @@ METHOD_REGISTRY = {
     "M6_PINN": PINNMethod,
     "M7_GrammarSymbolic": GrammarSymbolic,
     "M8_PISF": PISFMethod,
+    "M9_EnsembleSINDy": SINDyEnsemble,
 }

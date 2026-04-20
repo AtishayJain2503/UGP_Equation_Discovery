@@ -12,6 +12,10 @@ class D1ForcedDuffing(DynamicalSystem):
         self.gamma = gamma
         self.omega = omega
 
+    @property
+    def true_equation(self):
+        return f"x0_dot = x1\nx1_dot = {-self.delta:.4f} * x1 - {self.alpha:.4f} * x0 - {self.beta:.4f} * x0^3 + {self.gamma:.4f} * cos({self.omega:.4f} * t)\nt_dot = 1"
+
     def rhs(self, t, x):
         return [
             x[1],

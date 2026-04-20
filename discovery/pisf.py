@@ -13,21 +13,35 @@ class PISFMethod(DiscoveryMethod):
 
         self.sindy = SINDyPoly()
 
-    def smooth_derivatives(self, X, t):
+    def smooth_derivatives(self, X, t, Xdot_finite):
 
         Xdot = []
 
         for i in range(X.shape[1]):
 
-            spline = UnivariateSpline(t, X[:, i], s=0.01)
+            # Adaptive smoothing: scale with signal variance
+            signal_var = np.var(X[:, i])
+            s = max(0.001, 0.01 * signal_var) * len(t)
 
-            Xdot.append(spline.derivative()(t))
+            try:
+                spline = UnivariateSpline(t, X[:, i], s=s)
+                deriv = spline.derivative()(t)
+
+                # Sanity check: if the spline derivative is wildly off,
+                # fall back to finite-difference derivative
+                if np.std(deriv) > 100 * np.std(Xdot_finite[:, i]):
+                    deriv = Xdot_finite[:, i]
+
+            except Exception:
+                deriv = Xdot_finite[:, i]
+
+            Xdot.append(deriv)
 
         return np.vstack(Xdot).T
 
     def fit(self, X, Xdot, t):
 
-        smooth_dot = self.smooth_derivatives(X, t)
+        smooth_dot = self.smooth_derivatives(X, t, Xdot)
 
         self.sindy.fit(X, smooth_dot, t)
 

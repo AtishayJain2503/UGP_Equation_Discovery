@@ -29,24 +29,26 @@ class PINNMethod:
 
     def __init__(self):
 
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
         self.input_dim = None
         self.state_dim = None
+        self.final_loss = None
 
     def fit(self, X, Xdot, t):
 
         self.input_dim = X.shape[1]
         self.state_dim = Xdot.shape[1]
 
-        X_t = torch.tensor(X, dtype=torch.float32)
-        Xdot_t = torch.tensor(Xdot, dtype=torch.float32)
+        X_t = torch.tensor(X, dtype=torch.float32).to(self.device)
+        Xdot_t = torch.tensor(Xdot, dtype=torch.float32).to(self.device)
 
-        # create network with correct dimensions
-        self.model = PINNNet(self.input_dim, self.state_dim)
+        self.model = PINNNet(self.input_dim, self.state_dim).to(self.device)
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=500)
 
-        for _ in range(1000):
+        for epoch in range(500):
 
             pred = self.model(X_t)
 
@@ -55,22 +57,23 @@ class PINNMethod:
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
+
+        self.final_loss = loss.item()
 
     def rhs(self, t, x):
 
         x = np.array(x)
 
-        # append time if required
-        if len(x) < self.input_dim:
-            x = np.concatenate([x, [t]])
-
-        x_t = torch.tensor(x.reshape(1, -1), dtype=torch.float32)
-
-        dx = self.model(x_t).detach().numpy()[0]
+        with torch.no_grad():
+            x_t = torch.tensor(x.reshape(1, -1), dtype=torch.float32).to(self.device)
+            dx = self.model(x_t).cpu().numpy()[0]
 
         return dx
 
     def simulate(self, x0, t):
+
+        self.model.eval()
 
         try:
 
@@ -91,4 +94,5 @@ class PINNMethod:
 
     def equations(self):
 
-        return "PINN dynamics"
+        loss_str = f"{self.final_loss:.6e}" if self.final_loss is not None else "N/A"
+        return f"PINN: MLP [{self.input_dim}->64->64->{self.state_dim}], 500 epochs, final_loss={loss_str}"

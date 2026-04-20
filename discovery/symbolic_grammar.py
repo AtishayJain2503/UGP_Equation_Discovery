@@ -21,7 +21,8 @@ class GrammarSymbolic:
                 niterations=60,
                 binary_operators=["+", "-", "*"],
                 unary_operators=["sin", "cos"],
-                maxsize=20
+                maxsize=20,
+                progress=False
             )
 
             model.fit(X, Xdot[:, i])
@@ -59,4 +60,7 @@ class GrammarSymbolic:
 
     def equations(self):
 
-        return "Grammar symbolic regression"
+        eqs = []
+        for m in self.models:
+            eqs.append(str(m.sympy()))
+        return "\n".join(eqs)
