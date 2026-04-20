@@ -12,7 +12,7 @@ class SINDyEnsemble(DiscoveryMethod):
         # Use EnsembleOptimizer which handles sub-sampling
         base_optimizer = ps.STLSQ(threshold=threshold)
         ensemble_optimizer = ps.EnsembleOptimizer(
-            base_optimizer, n_models=20, n_subset_iter=20, n_candidates_to_drop=0
+            base_optimizer, n_models=20
         )
 
         self.model = ps.SINDy(
