@@ -9,28 +9,31 @@ class SINDyEnsemble(DiscoveryMethod):
 
     def __init__(self, poly_order=3, threshold=0.1):
 
-        # Use EnsembleOptimizer which handles sub-sampling
+        # EnsembleOptimizer requires ensemble_data=True or ensemble_library=True
+        # We use ensemble_data=True which sub-samples rows of the data matrix
         base_optimizer = ps.STLSQ(threshold=threshold)
-        ensemble_optimizer = ps.EnsembleOptimizer(
-            base_optimizer, n_models=20
+        self.ensemble_optimizer = ps.EnsembleOptimizer(
+            base_optimizer,
+            bagging=True,
+            n_models=20,
         )
 
+        self.library = ps.PolynomialLibrary(poly_order)
         self.model = ps.SINDy(
-            feature_library=ps.PolynomialLibrary(poly_order),
-            optimizer=ensemble_optimizer
+            feature_library=self.library,
+            optimizer=self.ensemble_optimizer
         )
 
     def fit(self, X, Xdot, t):
-        # PySINDy ensemble handles the bootstrapping internally
-        # we can just fit it directly. If error is thrown, fall back to normal fit.
-        self.model.fit(X, t=t, x_dot=Xdot, ensemble=True)
+        # ensemble=True tells PySINDy to activate the EnsembleOptimizer's bagging
+        self.model.fit(X, t=t, x_dot=Xdot, ensemble=True, n_models=20)
 
     def simulate(self, x0, t):
 
         try:
             Xp = self.model.simulate(
-                x0, t, 
-                integrator="solve_ivp", 
+                x0, t,
+                integrator="solve_ivp",
                 integrator_kws={'method': 'RK45'}
             )
 
@@ -39,11 +42,10 @@ class SINDyEnsemble(DiscoveryMethod):
 
             return Xp
 
-        except Exception as e:
+        except Exception:
             return None
 
     def equations(self):
 
-        # Precision 6 prevents small terms turning to exactly 0.000
         eqs = self.model.equations(precision=6)
         return "\n".join(eqs)
