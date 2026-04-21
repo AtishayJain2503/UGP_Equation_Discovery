@@ -29,27 +29,38 @@ METHOD_TIMEOUTS = {
 DEFAULT_TIMEOUT = 60
 
 
+def _sim_worker(model, x0, t, q):
+    try:
+        res = model.simulate(x0, t)
+        q.put(res)
+    except Exception:
+        q.put(None)
+
 def simulate_with_timeout(model, x0, t, timeout_sec):
-    """Run model.simulate in a thread; return None if it exceeds timeout_sec."""
-    result = [None]
-    exc = [None]
-
-    def worker():
-        try:
-            result[0] = model.simulate(x0, t)
-        except Exception as e:
-            exc[0] = e
-
-    th = threading.Thread(target=worker, daemon=True)
-    th.start()
-    th.join(timeout=timeout_sec)
-
-    if th.is_alive():
-        # Thread is stuck — we cannot forcibly kill it, but daemon=True
-        # means it won't block process exit. Return None to mark UNSTABLE.
+    """Run model.simulate in an OS process; kill it forcibly if it exceeds timeout."""
+    import multiprocessing
+    q = multiprocessing.Queue()
+    
+    p = multiprocessing.Process(target=_sim_worker, args=(model, x0, t, q))
+    p.daemon = True
+    p.start()
+    
+    p.join(timeout=timeout_sec)
+    
+    if p.is_alive():
+        # TRUE KILL. This stops RK45 infinite timestep loops dead in their tracks.
+        p.terminate()
+        p.join()
         return None
-
-    return result[0]
+        
+    try:
+        # Check if queue has result because the process ended cleanly
+        if not q.empty():
+            return q.get()
+    except Exception:
+        pass
+        
+    return None
 
 
 def load_dataset(path):
@@ -414,6 +425,13 @@ def run_benchmark():
                     true_eq  = true_cfg.true_equation
                 else:
                     true_eq = "Unknown"
+                    
+                import pysindy as ps
+                if noise > 0:
+                    # Provide an empirical derivative for methods that expect one. 
+                    # DO NOT pass the perfectly clean analytic target if input is noisy!
+                    diff = ps.SmoothedFiniteDifference()
+                    Xdot = diff(X, t=t)
 
                 if system_id == "D1":
                     t_feature = t.reshape(-1, 1)

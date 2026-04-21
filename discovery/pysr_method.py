@@ -20,7 +20,7 @@ class PySRMethod:
         for i in range(state_dim):
 
             model = PySRRegressor(
-                niterations=80,
+                niterations=40,
                 binary_operators=["+", "-", "*", "/"],
                 unary_operators=["sin", "cos", "exp"],
                 maxsize=20,

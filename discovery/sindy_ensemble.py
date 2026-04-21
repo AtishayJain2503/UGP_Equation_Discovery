@@ -11,7 +11,7 @@ class SINDyEnsemble(DiscoveryMethod):
 
         # EnsembleOptimizer requires ensemble_data=True or ensemble_library=True
         # We use ensemble_data=True which sub-samples rows of the data matrix
-        base_optimizer = ps.STLSQ(threshold=threshold)
+        base_optimizer = ps.SR3(reg_weight_lam=threshold, regularizer='L0')
         self.ensemble_optimizer = ps.EnsembleOptimizer(
             base_optimizer,
             bagging=True,
@@ -21,12 +21,12 @@ class SINDyEnsemble(DiscoveryMethod):
         self.library = ps.PolynomialLibrary(poly_order)
         self.model = ps.SINDy(
             feature_library=self.library,
-            optimizer=self.ensemble_optimizer
+            optimizer=self.ensemble_optimizer,
+            differentiation_method=ps.SmoothedFiniteDifference()
         )
 
     def fit(self, X, Xdot, t):
-        # ensemble=True tells PySINDy to activate the EnsembleOptimizer's bagging
-        self.model.fit(X, t=t, x_dot=Xdot, ensemble=True, n_models=20)
+        self.model.fit(X, t=t, x_dot=Xdot)
 
     def simulate(self, x0, t):
 

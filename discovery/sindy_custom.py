@@ -14,11 +14,10 @@ class SINDyCustom(DiscoveryMethod):
             ps.FourierLibrary(n_frequencies=2)
         ])
 
-        optimizer = ps.STLSQ(threshold=0.1)
-
         self.model = ps.SINDy(
             feature_library=library,
-            optimizer=optimizer
+            optimizer=ps.SR3(reg_weight_lam=0.1, regularizer='L0'),
+            differentiation_method=ps.SmoothedFiniteDifference()
         )
 
     def fit(self, X, Xdot, t):

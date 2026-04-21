@@ -11,11 +11,12 @@ class SINDyPoly(DiscoveryMethod):
 
         self.model = ps.SINDy(
             feature_library=ps.PolynomialLibrary(poly_order),
-            optimizer=ps.STLSQ(threshold=threshold)
+            optimizer=ps.SR3(reg_weight_lam=threshold, regularizer='L0'),
+            feature_names=["x0", "x1", "x2"][:3], # placeholder for sizing
+            differentiation_method=ps.SmoothedFiniteDifference()
         )
 
     def fit(self, X, Xdot, t):
-
         self.model.fit(X, t=t, x_dot=Xdot)
 
     def simulate(self, x0, t):
