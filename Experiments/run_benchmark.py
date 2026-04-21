@@ -29,38 +29,27 @@ METHOD_TIMEOUTS = {
 DEFAULT_TIMEOUT = 60
 
 
-def _sim_worker(model, x0, t, q):
-    try:
-        res = model.simulate(x0, t)
-        q.put(res)
-    except Exception:
-        q.put(None)
-
 def simulate_with_timeout(model, x0, t, timeout_sec):
-    """Run model.simulate in an OS process; kill it forcibly if it exceeds timeout."""
-    import multiprocessing
-    q = multiprocessing.Queue()
-    
-    p = multiprocessing.Process(target=_sim_worker, args=(model, x0, t, q))
-    p.daemon = True
-    p.start()
-    
-    p.join(timeout=timeout_sec)
-    
-    if p.is_alive():
-        # TRUE KILL. This stops RK45 infinite timestep loops dead in their tracks.
-        p.terminate()
-        p.join()
+    """Run model.simulate in a thread; return None if it exceeds timeout_sec."""
+    import threading
+    result = [None]
+    exc = [None]
+
+    def worker():
+        try:
+            result[0] = model.simulate(x0, t)
+        except Exception as e:
+            exc[0] = e
+
+    th = threading.Thread(target=worker, daemon=True)
+    th.start()
+    th.join(timeout=timeout_sec)
+
+    if th.is_alive():
+        # Thread exceeded timeout.
         return None
-        
-    try:
-        # Check if queue has result because the process ended cleanly
-        if not q.empty():
-            return q.get()
-    except Exception:
-        pass
-        
-    return None
+
+    return result[0]
 
 
 def load_dataset(path):
