@@ -97,6 +97,59 @@ UGP_Equation_Discovery/
 ├── evaluation/       # Scoring, Rollout, and Complexity metrics
 ├── registry/         # Centralized mapping for automation
 ├── experiments/      # Main execution scripts
-├── analysis/         # Visualization and reporting tools
 ├── data/             # Generated noisy/clean trajectories (.npz)
-└── results/          # Output metrics, plots, and CSV summaries
+└── results/          # Output metrics, plots, and CSV/HTML summaries
+```
+
+---
+
+## 🚀 Installation & Usage
+
+1. **Clone the Repository:**
+```bash
+git clone https://github.com/your-repo/UGP-Equation-Discovery.git
+cd UGP-Equation-Discovery/Code
+```
+
+2. **Install Dependencies:**
+It is highly recommended to use a virtual environment (`venv`).
+```bash
+pip install -r requirements.txt
+```
+*(Core dependencies include `pysindy`, `pysr`, `torch`, `scipy`, `numpy`, and `scikit-learn`)*
+
+3. **Generate Datasets:**
+First, simulate the raw ground-truth physics arrays across all systems with varying levels of observational noise (0%, 2%, 5%).
+```bash
+python -m experiments.generate_datasets
+```
+
+4. **Run the Benchmark:**
+Execute the full suite of all 9 algorithmic methods against all datasets.
+*(Note: PySR employs intensive evolutionary genetic algorithms. A full run may take around 5 hours depending on your hardware).*
+```bash
+python -m experiments.run_benchmark
+```
+
+5. **View the Interactive Dashboard:**
+Once the run finishes, a standalone, interactive HTML UI is generated. Open it in any browser to explore the metrics and the detailed "Project Report & Story" tab!
+```bash
+# On Windows:
+start results/benchmark_report.html
+
+# On Mac/Linux:
+open results/benchmark_report.html
+```
+
+---
+
+## 📊 Evaluation Metrics
+* **NMSE (Normalized Mean Squared Error):** The ultimate accuracy score. Evaluates the difference between the true physics trajectory and the simulated trajectory of the newly discovered equation. 
+* **Stable / Unstable Status:** Assesses long-term integration stability. If a predicted formulation is mathematically unstable (stiff), the RK45 numeric solver explicitly catches the explosion and marks it `UNSTABLE`.
+* **Complexity:** A strict count of the algebraic nodes in the discovered equation tree. Strongly penalizes overfitting via excessive floating-point fractional polynomials.
+* **Neural Approximators (M5 & M6):** Rather than symbolic algebra, Neural ODEs and PINNs act as absolute "Black Box Limiters." They establish the maximum predictive continuous fidelity (NMSE) that the algebraic methods should be striving to achieve.
+
+---
+
+## 🔬 Research Applications
+This framework represents a robust bridge for assessing when algorithms leave standard linear regimes and encounter real, chaotic nonlinear dynamics. It is heavily stress-tested to expose the breaking points of SINDy's algebraic collinearity restrictions and standard baseline regressions against both clean and stochastically noisy observations.

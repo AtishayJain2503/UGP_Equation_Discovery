@@ -471,7 +471,7 @@ def run_benchmark():
                     model.fit(X, Xdot, t)
                 except Exception as e:
                     elapsed = time.time() - t0
-                    print(f"✗ FIT_ERROR ({elapsed:.1f}s): {e}")
+                    print(f"[ERROR] FIT_ERROR ({elapsed:.1f}s): {e}")
                     X_pred = None
                     model  = None
                 else:
@@ -502,7 +502,7 @@ def run_benchmark():
                 except Exception as e:
                     predicted_eq = f"Error: {str(e)}"
 
-                status_icon = "✓" if status == "STABLE" else "✗"
+                status_icon = "[PASS]" if status == "STABLE" else "[FAIL]"
                 nmse_str    = f"{nmse:.4e}" if np.isfinite(nmse) else "DIVERGED"
                 print(f"{status_icon} {nmse_str} ({elapsed:.1f}s)")
 
