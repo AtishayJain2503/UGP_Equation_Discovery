@@ -1,6 +1,28 @@
+# Virtual environment
 venv/
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+
+# Generated datasets (large binary files — regenerate with `python -m experiments.generate_datasets`)
+data/
 *.npz
-# results/
+
+# PySR / Julia intermediate outputs
+outputs/
 julia_env/
+hall_of_fame*.csv
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Keep results committed (HTML dashboard + CSV)
+# results/
