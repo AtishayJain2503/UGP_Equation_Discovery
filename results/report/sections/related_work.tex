@@ -1,0 +1,14 @@
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Sparse Identification of Nonlinear Dynamics (SINDy)}
+Brunton et al. \cite{brunton2016} introduced SINDy, which constructs a library of candidate nonlinear functions $\boldsymbol{\Theta}(\mathbf{X})$ and solves for a sparse coefficient matrix $\boldsymbol{\Xi}$ such that $\dot{\mathbf{X}} \approx \boldsymbol{\Theta}(\mathbf{X})\boldsymbol{\Xi}$. The original implementation used Sequentially Thresholded Least Squares (STLSQ). Subsequent work introduced SR3 \cite{zheng2019} for improved convergence and robustness, ensemble methods for uncertainty quantification, and physics-informed variants with adaptive smoothing.
+
+\subsection{Symbolic Regression}
+PySR \cite{cranmer2023} uses multi-population evolutionary search with genetic programming to discover symbolic expressions without a fixed basis. Grammar-constrained approaches restrict the search space using production rules, which can improve convergence on structured problems.
+
+\subsection{Neural Approaches}
+Neural ODEs \cite{chen2018} parameterize the right-hand side of an ODE with a neural network, learning $\dot{\mathbf{x}} = f_\theta(\mathbf{x})$ via gradient descent. Physics-Informed Neural Networks (PINNs) \cite{raissi2019} embed known physics constraints into the loss function. Both approaches are ``black-box''---they achieve predictive accuracy but do not produce human-interpretable symbolic equations.
+
+\subsection{Gap in Literature}
+Prior benchmarking studies typically evaluate 2--3 methods on 3--5 systems. No existing work provides a unified evaluation of all three paradigms (sparse, evolutionary, neural) across a comprehensive difficulty spectrum that includes hysteretic memory dynamics and chaotic attractors at multiple noise levels.

@@ -1,0 +1,160 @@
+\section{Experimental Results}
+\label{sec:results}
+
+We present results from 270 experiments (9 methods $\times$ 10 systems $\times$ 3 noise levels). Of these, \textbf{213 (78.9\%) achieved stable integration} and 57 (21.1\%) diverged.
+
+\subsection{Method Leaderboard}
+
+Table~\ref{tab:leaderboard} ranks methods by stability rate and mean NMSE across stable runs.
+
+\begin{table}[!ht]
+\centering
+\caption{Method Performance Summary (270 total runs)}
+\label{tab:leaderboard}
+\begin{tabular}{@{}llccr@{}}
+\toprule
+\textbf{Rank} & \textbf{Method} & \textbf{Stable} & \textbf{Rate} & \textbf{Mean NMSE} \\
+\midrule
+1 & M5 Neural ODE & 30/30 & 100\% & 0.7714 \\
+2 & M6 PINN & 30/30 & 100\% & 6.8154 \\
+3 & M4 PySR & 29/30 & 97\% & 1.1985 \\
+4 & M7 Grammar Sym. & 29/30 & 97\% & 0.8387 \\
+5 & M3 Bayesian SINDy & 25/30 & 83\% & 0.4972 \\
+6 & M1 SINDy-Poly & 24/30 & 80\% & 1.0925 \\
+7 & M9 Ensemble SINDy & 18/30 & 60\% & 1.1438 \\
+8 & M2 SINDy-Custom & 14/30 & 47\% & 0.6975 \\
+9 & M8 PISF & 14/30 & 47\% & 1.2855 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key observations:}
+\begin{itemize}
+    \item \textbf{Neural methods (M5, M6) achieve 100\% stability} but produce no symbolic equations. M5 has the lowest mean NMSE among neural methods (0.77).
+    \item \textbf{M3 Bayesian SINDy achieves the lowest mean NMSE (0.497)} among equation-producing methods with 83\% stability.
+    \item \textbf{M4 PySR and M7 Grammar achieve 97\% stability} with competitive NMSE, combining equation output with robustness.
+    \item \textbf{M2 SINDy-Custom and M8 PISF are the least stable (47\%)}. M2's expanded Fourier basis causes severe collinearity.
+\end{itemize}
+
+\subsection{System Difficulty Analysis}
+
+Table~\ref{tab:system_stability} shows stability rates per system across all methods.
+
+\begin{table}[!ht]
+\centering
+\caption{System Stability Rates (27 runs per system)}
+\label{tab:system_stability}
+\begin{tabular}{@{}llccl@{}}
+\toprule
+\textbf{ID} & \textbf{System} & \textbf{Stable} & \textbf{Rate} & \textbf{Difficulty} \\
+\midrule
+C2 & Duffing & 27/27 & 100\% & Easy \\
+E1 & Van der Pol & 27/27 & 100\% & Easy \\
+B2 & Pendulum & 26/27 & 96\% & Easy \\
+G2 & R\"{o}ssler & 25/27 & 93\% & Moderate \\
+A2 & Harmonic Osc. & 24/27 & 89\% & Moderate \\
+D1 & Forced Duffing & 21/27 & 78\% & Moderate \\
+F1 & Bouc--Wen I & 18/27 & 67\% & Hard \\
+F3 & Bouc--Wen 4D & 16/27 & 59\% & Hard \\
+F2 & Bouc--Wen II & 15/27 & 56\% & Hard \\
+G1 & Lorenz & 14/27 & 52\% & Hard \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{NMSE Heatmap: Method $\times$ System (Clean Data)}
+
+Table~\ref{tab:heatmap} shows NMSE values for each method-system pair on clean data. Cells marked ``U'' indicate unstable (diverged) integration.
+
+\begin{table*}[!ht]
+\centering
+\caption{NMSE Heatmap --- Clean Data Only. Bold indicates best per system. ``U'' = Unstable.}
+\label{tab:heatmap}
+\small
+\begin{tabular}{@{}l|cccccccccc@{}}
+\toprule
+\textbf{Method} & \textbf{A2} & \textbf{B2} & \textbf{C2} & \textbf{D1} & \textbf{E1} & \textbf{F1} & \textbf{F2} & \textbf{F3} & \textbf{G1} & \textbf{G2} \\
+\midrule
+M1 SINDy-Poly & \textbf{7.2e-7} & 2.11 & \textbf{0.00} & 2.17 & \textbf{9.1e-5} & 0.646 & U & U & 0.362 & 0.748 \\
+M2 SINDy-Custom & U & U & \textbf{0.00} & U & 3.5e-4 & U & U & U & \textbf{0.277} & 0.748 \\
+M3 Bayesian & 2.6e-2 & 5.3e-3 & \textbf{0.00} & 2.51 & 1.1e-4 & 0.063 & U & 0.942 & U & 2.50 \\
+M4 PySR & 2.3e-5 & \textbf{4.6e-3} & \textbf{0.00} & 1.76 & 2.3e-3 & 2.8e-3 & 4.8e-4 & 2.9e-4 & U & \textbf{2.4e-6} \\
+M5 Neural ODE & 9.0e-4 & 2.03 & 3.5e-13 & 0.516 & 1.74 & 0.013 & 0.012 & 5.1e-3 & 1.44 & 0.802 \\
+M6 PINN & 1.1e-3 & 2.78 & 2.3e-12 & 0.343 & 0.698 & 9.8e-3 & 0.011 & 0.013 & 184.5 & 2.09 \\
+M7 Grammar & 2.3e-5 & 4.6e-3 & \textbf{0.00} & \textbf{0.239} & 1.5e-3 & \textbf{3.2e-4} & \textbf{7.3e-5} & \textbf{4.4e-5} & 0.327 & 2.4e-6 \\
+M8 PISF & U & 2.29 & \textbf{0.00} & U & 1.95 & U & U & U & U & U \\
+M9 Ensemble & U & 2.11 & \textbf{0.00} & 2.18 & 6.8e-4 & 0.392 & U & U & U & 0.748 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Best Results Per System}
+
+\begin{itemize}
+    \item \textbf{A2 (Harmonic Oscillator):} M1 achieves NMSE $= 7.23 \times 10^{-7}$, recovering $\dot{x}_1 = -1.000 \cdot x_0$ almost exactly.
+    \item \textbf{B2 (Pendulum):} M4 PySR achieves NMSE $= 4.56 \times 10^{-3}$ via Taylor approximation of $\sin(\theta)$.
+    \item \textbf{C2 (Duffing):} 6 methods achieve NMSE $= 0.0$ (exact recovery of polynomial structure).
+    \item \textbf{D1 (Forced Duffing):} M7 achieves NMSE $= 0.239$; the forcing term $\cos(1.2t)$ makes exact recovery difficult.
+    \item \textbf{E1 (Van der Pol):} M1 achieves NMSE $= 9.14 \times 10^{-5}$, recovering $\dot{x}_1 = -0.999 x_0 + 2.005 x_1 - 2.002 x_0^2 x_1$ (true: $-x_0 + 2x_1 - 2x_0^2 x_1$).
+    \item \textbf{F1--F3 (Bouc--Wen):} M7 Grammar dominates with NMSE $\sim 10^{-4}$ to $10^{-5}$ on clean data. All polynomial methods fail (U or NMSE $> 0.5$) because $|x|$ is inexpressible in polynomial bases.
+    \item \textbf{G1 (Lorenz):} M2 achieves the best NMSE $= 0.277$ on clean data, but most methods fail at 5\% noise. Chaotic sensitivity makes long-horizon NMSE inherently high.
+    \item \textbf{G2 (R\"{o}ssler):} M4 and M7 achieve NMSE $= 2.35 \times 10^{-6}$, near-perfect recovery.
+\end{itemize}
+
+\subsection{Noise Degradation Analysis}
+
+Table~\ref{tab:noise_degradation} shows how NMSE degrades with noise for selected method-system pairs.
+
+\begin{table}[!ht]
+\centering
+\caption{Noise Degradation: NMSE at 0\%, 2\%, 5\% Noise}
+\label{tab:noise_degradation}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Method} & \textbf{System} & \textbf{Clean} & \textbf{2\%} & \textbf{5\%} \\
+\midrule
+M1 & A2 & $7.2\times10^{-7}$ & 0.011 & 1.999 \\
+M1 & E1 & $9.1\times10^{-5}$ & 0.176 & 0.977 \\
+M3 & A2 & 0.026 & 0.047 & 0.095 \\
+M4 & B2 & 0.005 & 0.011 & 0.024 \\
+M5 & E1 & 1.740 & 1.510 & 1.280 \\
+M7 & F1 & $3.2\times10^{-4}$ & 0.001 & 0.004 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key findings:}
+\begin{itemize}
+    \item \textbf{M1 SINDy-Poly} degrades dramatically: A2 goes from $10^{-7}$ to 2.0 at 5\% noise.
+    \item \textbf{M3 Bayesian SINDy} degrades gracefully: A2 goes from 0.026 to 0.095 at 5\% noise (3.6$\times$ vs.\ M1's $2.8\times10^6\times$).
+    \item \textbf{M4 PySR} maintains stability across noise levels for most systems.
+    \item \textbf{Neural methods (M5)} are noise-agnostic by design---NMSE is similar across noise levels.
+\end{itemize}
+
+\subsection{Equation Recovery: Worked Example (E1 Van der Pol)}
+
+The true Van der Pol equations are:
+\begin{align}
+\dot{x}_0 &= x_1 \\
+\dot{x}_1 &= 2(1 - x_0^2) x_1 - x_0
+\end{align}
+
+\textbf{M1 SINDy-Poly (clean, NMSE $= 9.1 \times 10^{-5}$):}
+\begin{align}
+\dot{x}_0 &= 1.000 \cdot x_1 \\
+\dot{x}_1 &= -0.999 x_0 + 2.005 x_1 - 2.002 x_0^2 x_1
+\end{align}
+This is a near-perfect recovery with $<0.3\%$ coefficient error.
+
+\textbf{M1 SINDy-Poly (5\% noise, NMSE $= 0.977$):}
+\begin{align}
+\dot{x}_0 &= 1.042 \cdot x_1 \\
+\dot{x}_1 &= -0.969 x_0 + 1.733 x_1 - 1.804 x_0^2 x_1
+\end{align}
+The correct structure is preserved but coefficients drift by $\sim$10\%.
+
+\textbf{M5 Neural ODE (any noise):}
+\begin{equation}
+\dot{\mathbf{x}} = f_\theta(\mathbf{x}), \quad \theta \in \mathbb{R}^{4866} \text{ (MLP weights)}
+\end{equation}
+No symbolic equation is produced.

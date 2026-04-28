@@ -1,0 +1,28 @@
+\section{Introduction}
+\label{sec:intro}
+
+The automated discovery of governing equations from observational data represents one of the most fundamental challenges in Scientific Machine Learning (SciML). Given time-series measurements of a dynamical system, the goal is to recover the symbolic mathematical law that governs its evolution---without prior knowledge of the equation form.
+
+This problem has attracted significant attention since the introduction of Sparse Identification of Nonlinear Dynamics (SINDy) \cite{brunton2016}, which demonstrated that many physical laws are \textit{sparse} in an appropriate basis of candidate functions. Since then, alternative paradigms have emerged: evolutionary symbolic regression via genetic programming \cite{cranmer2023}, neural surrogate models \cite{chen2018}, and physics-informed neural networks \cite{raissi2019}.
+
+However, most published evaluations test these methods on a narrow set of well-behaved systems (typically the Lorenz attractor or simple oscillators) under idealized conditions. \textbf{The critical question remains unanswered: how do these methods perform when confronted with the full spectrum of nonlinear dynamical complexity---including hysteresis, external forcing, limit cycles, and chaos---under realistic noise conditions?}
+
+\subsection{Contributions}
+
+This work makes the following contributions:
+
+\begin{enumerate}
+    \item \textbf{Comprehensive Benchmark:} We construct a benchmark of 10 dynamical systems spanning 5 distinct categories (linear, nonlinear polynomial, forced, hysteretic, chaotic) and evaluate 9 methods at 3 noise levels, totalling 270 experiments.
+    
+    \item \textbf{Cross-Paradigm Comparison:} We provide the first head-to-head comparison of sparse regression (5 variants), evolutionary symbolic regression (2 variants), and neural approaches (2 variants) on identical datasets.
+    
+    \item \textbf{Engineering Analysis:} We document two critical failure modes---the \textit{collinearity explosion} in STLSQ and the \textit{target data leak} in noisy derivative computation---and present solutions that reduced runtime by 60\% while eliminating crashes.
+    
+    \item \textbf{Interactive Dashboard:} We provide a self-contained HTML dashboard with filterable results, an NMSE heatmap, method leaderboard, and browser-side RK4 trajectory simulation for visual comparison.
+    
+    \item \textbf{Reproducibility:} The complete codebase, pre-computed results, and interactive dashboard are publicly available at \url{https://github.com/AtishayJain2503/UGP_Equation_Discovery}.
+\end{enumerate}
+
+\subsection{Paper Organization}
+
+Section~\ref{sec:related} reviews related work. Section~\ref{sec:systems} details the 10 benchmark systems. Section~\ref{sec:methods} describes the 9 discovery methods. Section~\ref{sec:framework} presents the evaluation framework and metrics. Section~\ref{sec:results} analyzes experimental results. Section~\ref{sec:engineering} documents engineering challenges and solutions. Section~\ref{sec:dashboard} describes the interactive dashboard. Section~\ref{sec:conclusion} concludes with findings and future work.

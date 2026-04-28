@@ -1,0 +1,680 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{colortbl}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.95}
+\definecolor{stablegreen}{rgb}{0.06,0.73,0.50}
+\definecolor{unstablered}{rgb}{0.96,0.25,0.37}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codepurple},
+    numberstyle=\tiny\color{codegray},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    captionpos=b
+}
+\lstset{style=mystyle}
+
+\begin{document}
+
+\title{Benchmarking Equation Discovery Methods for\\Nonlinear Dynamical Systems: A Comprehensive\\Evaluation of Sparse, Evolutionary, and Neural Approaches}
+
+\author{
+\IEEEauthorblockN{Atishay Jain}
+\IEEEauthorblockA{Department of Computer Science\\
+Indian Institute of Technology\\
+Undergraduate Project (UGP)\\
+Email: atishay.jain@example.com}
+}
+
+\maketitle
+
+\begin{abstract}
+We present a systematic benchmarking framework for evaluating nine equation discovery methods across ten nonlinear dynamical systems at three noise levels, totalling 270 controlled experiments. The methods span sparse regression (SINDy variants, PISF, Ensemble SINDy), evolutionary symbolic regression (PySR, Grammar-Constrained), Bayesian inference, and neural approaches (Neural ODE, PINN). The benchmark systems range from linear oscillators through limit-cycle dynamics and hysteretic memory systems to three-dimensional chaotic attractors (Lorenz, R\"{o}ssler). We evaluate each method on Normalized Mean Squared Error (NMSE), integration stability, rollout error, and equation sparsity. Our results reveal that (i) Grammar-Constrained Symbolic Regression (M7) achieves the best clean-data NMSE on 5 of 10 systems, (ii) Neural ODE and PINN achieve 100\% stability but produce no symbolic equations, (iii) all polynomial-basis methods fail structurally on hysteretic (Bouc--Wen) systems due to the inexpressibility of $|x|$ in polynomial bases, and (iv) migrating from STLSQ to SR3 with $L_0$ regularization eliminated catastrophic collinearity crashes and reduced total runtime from 14 hours to 5.6 hours. The framework, interactive dashboard, and all results are publicly available.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Equation Discovery, SINDy, Symbolic Regression, Neural ODE, PINN, Scientific Machine Learning, Dynamical Systems, Sparse Regression, Benchmark
+\end{IEEEkeywords}
+
+\section{Introduction}
+\label{sec:intro}
+
+The automated discovery of governing equations from observational data represents one of the most fundamental challenges in Scientific Machine Learning (SciML). Given time-series measurements of a dynamical system, the goal is to recover the symbolic mathematical law that governs its evolution---without prior knowledge of the equation form.
+
+This problem has attracted significant attention since the introduction of Sparse Identification of Nonlinear Dynamics (SINDy) \cite{brunton2016}, which demonstrated that many physical laws are \textit{sparse} in an appropriate basis of candidate functions. Since then, alternative paradigms have emerged: evolutionary symbolic regression via genetic programming \cite{cranmer2023}, neural surrogate models \cite{chen2018}, and physics-informed neural networks \cite{raissi2019}.
+
+However, most published evaluations test these methods on a narrow set of well-behaved systems (typically the Lorenz attractor or simple oscillators) under idealized conditions. \textbf{The critical question remains unanswered: how do these methods perform when confronted with the full spectrum of nonlinear dynamical complexity---including hysteresis, external forcing, limit cycles, and chaos---under realistic noise conditions?}
+
+\subsection{Contributions}
+
+This work makes the following contributions:
+
+\begin{enumerate}
+    \item \textbf{Comprehensive Benchmark:} We construct a benchmark of 10 dynamical systems spanning 5 distinct categories (linear, nonlinear polynomial, forced, hysteretic, chaotic) and evaluate 9 methods at 3 noise levels, totalling 270 experiments.
+    
+    \item \textbf{Cross-Paradigm Comparison:} We provide the first head-to-head comparison of sparse regression (5 variants), evolutionary symbolic regression (2 variants), and neural approaches (2 variants) on identical datasets.
+    
+    \item \textbf{Engineering Analysis:} We document two critical failure modes---the \textit{collinearity explosion} in STLSQ and the \textit{target data leak} in noisy derivative computation---and present solutions that reduced runtime by 60\% while eliminating crashes.
+    
+    \item \textbf{Interactive Dashboard:} We provide a self-contained HTML dashboard with filterable results, an NMSE heatmap, method leaderboard, and browser-side RK4 trajectory simulation for visual comparison.
+    
+    \item \textbf{Reproducibility:} The complete codebase, pre-computed results, and interactive dashboard are publicly available at \url{https://github.com/AtishayJain2503/UGP_Equation_Discovery}.
+\end{enumerate}
+
+\subsection{Paper Organization}
+
+Section~\ref{sec:related} reviews related work. Section~\ref{sec:systems} details the 10 benchmark systems. Section~\ref{sec:methods} describes the 9 discovery methods. Section~\ref{sec:framework} presents the evaluation framework and metrics. Section~\ref{sec:results} analyzes experimental results. Section~\ref{sec:engineering} documents engineering challenges and solutions. Section~\ref{sec:dashboard} describes the interactive dashboard. Section~\ref{sec:conclusion} concludes with findings and future work.
+
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Sparse Identification of Nonlinear Dynamics (SINDy)}
+Brunton et al. \cite{brunton2016} introduced SINDy, which constructs a library of candidate nonlinear functions $\boldsymbol{\Theta}(\mathbf{X})$ and solves for a sparse coefficient matrix $\boldsymbol{\Xi}$ such that $\dot{\mathbf{X}} \approx \boldsymbol{\Theta}(\mathbf{X})\boldsymbol{\Xi}$. The original implementation used Sequentially Thresholded Least Squares (STLSQ). Subsequent work introduced SR3 \cite{zheng2019} for improved convergence and robustness, ensemble methods for uncertainty quantification, and physics-informed variants with adaptive smoothing.
+
+\subsection{Symbolic Regression}
+PySR \cite{cranmer2023} uses multi-population evolutionary search with genetic programming to discover symbolic expressions without a fixed basis. Grammar-constrained approaches restrict the search space using production rules, which can improve convergence on structured problems.
+
+\subsection{Neural Approaches}
+Neural ODEs \cite{chen2018} parameterize the right-hand side of an ODE with a neural network, learning $\dot{\mathbf{x}} = f_\theta(\mathbf{x})$ via gradient descent. Physics-Informed Neural Networks (PINNs) \cite{raissi2019} embed known physics constraints into the loss function. Both approaches are ``black-box''---they achieve predictive accuracy but do not produce human-interpretable symbolic equations.
+
+\subsection{Gap in Literature}
+Prior benchmarking studies typically evaluate 2--3 methods on 3--5 systems. No existing work provides a unified evaluation of all three paradigms (sparse, evolutionary, neural) across a comprehensive difficulty spectrum that includes hysteretic memory dynamics and chaotic attractors at multiple noise levels.
+
+\section{Benchmark Systems}
+\label{sec:systems}
+
+We curate 10 dynamical systems organized into 5 categories of increasing complexity. All systems are implemented as first-order ODE systems and integrated using the RK45 solver from SciPy. Table~\ref{tab:systems} summarizes the systems.
+
+\begin{table*}[!ht]
+\centering
+\caption{Benchmark Systems: 10 Dynamical Regimes Spanning 5 Complexity Categories}
+\label{tab:systems}
+\begin{tabular}{@{}llccll@{}}
+\toprule
+\textbf{ID} & \textbf{System} & \textbf{Dim} & \textbf{Category} & \textbf{Governing Equations} & \textbf{Primary Challenge} \\
+\midrule
+A2 & Damped Harmonic Oscillator & 2 & Linear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = -x_0$ & Baseline \\
+\midrule
+B2 & Large-Angle Pendulum & 2 & Nonlinear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = -9.81\sin(x_0) - 0.05 x_1$ & Transcendental $\sin(\cdot)$ \\
+\midrule
+C2 & Duffing Oscillator & 2 & Nonlinear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = -0.2 x_1 + x_0 - x_0^3$ & Cubic stiffness \\
+\midrule
+D1 & Forced Duffing & 2+$t$ & Forced &
+$\dot{x}_1 = -0.2 x_1 + x_0 - x_0^3 + 0.3\cos(1.2t)$ & Non-autonomous \\
+\midrule
+E1 & Van der Pol & 2 & Nonlinear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = 2(1 - x_0^2)x_1 - x_0$ & Limit cycle \\
+\midrule
+F1 & Bouc--Wen I & 3 & Hysteretic &
+$\dot{x}_2 = x_1 - 0.5|x_1|x_2 - 0.5 x_1|x_2|$ & Memory / $|x|$ \\
+\midrule
+F2 & Bouc--Wen II & 3 & Hysteretic &
+$\dot{x}_2 = x_1 - 0.5|x_1||x_2|x_2 - 0.5 x_1|x_2|^2$ & Asymmetric hysteresis \\
+\midrule
+F3 & Bouc--Wen 4D & 4 & Hysteretic &
+$\dot{x}_2 = (1 - 0.05 x_3)x_1 - 0.5|x_1|x_2 - 0.5 x_1|x_2|$ & 4-state degrading \\
+\midrule
+G1 & Lorenz Attractor & 3 & Chaotic &
+$\dot{x}_0 = 10(x_1 - x_0),\ \dot{x}_1 = x_0(28 - x_2) - x_1$ & Sensitive dependence \\
+\midrule
+G2 & R\"{o}ssler Attractor & 3 & Chaotic &
+$\dot{x}_0 = -x_1 - x_2,\ \dot{x}_2 = 0.2 + x_2(x_0 - 5.7)$ & Phase-space folding \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Category A: Linear Dynamics}
+The Damped Harmonic Oscillator (A2) serves as a baseline. With $\dot{x}_0 = x_1$ and $\dot{x}_1 = -\omega^2 x_0$ ($\omega = 1$), this is the simplest possible second-order ODE. Any competent method should recover this law with NMSE $< 10^{-4}$.
+
+\subsection{Category B--E: Nonlinear and Forced Systems}
+The \textbf{Large-Angle Pendulum} (B2) introduces a transcendental nonlinearity ($\sin(\theta)$) that cannot be exactly represented by a polynomial basis. The \textbf{Duffing Oscillator} (C2) adds cubic stiffness ($-x_0^3$) to a linear oscillator. The \textbf{Forced Duffing} (D1) adds time-dependent forcing ($0.3\cos(1.2t)$), making the system non-autonomous. The \textbf{Van der Pol Oscillator} (E1) exhibits a stable limit cycle via the nonlinear damping term $\mu(1 - x_0^2)x_1$.
+
+\subsection{Category F: Hysteretic Systems}
+The Bouc--Wen family \cite{boucwen1976} models hysteretic restoring forces with internal memory states. The key challenge is that the governing equations contain $|x_1|$ (absolute value), which is \textit{fundamentally inexpressible} as a polynomial. This makes F1--F3 the hardest systems for polynomial-basis methods, not due to algorithmic limitations but due to basis mismatch.
+
+\textbf{F1} uses the standard Bouc--Wen formulation with parameters $A = 1$, $\beta = 0.5$, $\gamma = 0.5$. \textbf{F2} introduces asymmetric hysteresis with $|x_1||x_2|x_2$ and $x_1|x_2|^2$ terms. \textbf{F3} adds a degradation state variable $x_3$ coupled via $(1 - 0.05 x_3)x_1$, yielding a 4-dimensional system.
+
+\subsection{Category G: Chaotic Attractors}
+The \textbf{Lorenz Attractor} (G1) \cite{lorenz1963} is the canonical chaotic system with $\sigma = 10$, $\rho = 28$, $\beta = 8/3$. Even a perfectly recovered equation with 0.1\% coefficient error will yield NMSE $> 1$ at long horizons due to sensitive dependence on initial conditions. The \textbf{R\"{o}ssler Attractor} (G2) \cite{rossler1976} with $a = 0.2$, $b = 0.2$, $c = 5.7$ provides a second chaotic benchmark with a simpler structure.
+
+\subsection{Noise Model}
+Each system is tested at three noise levels: clean ($\sigma_n = 0$), moderate ($\sigma_n = 0.02 \cdot \text{std}(\mathbf{X})$), and high ($\sigma_n = 0.05 \cdot \text{std}(\mathbf{X})$). Gaussian noise is added to the state observations $\mathbf{X}$, not to the derivatives $\dot{\mathbf{X}}$.
+
+\section{Equation Discovery Methods}
+\label{sec:methods}
+
+We evaluate 9 methods spanning 4 algorithmic paradigms. Table~\ref{tab:methods} provides an overview. All methods share the same API: \texttt{fit(X, Xdot, t)}, \texttt{simulate(x0, t)}, \texttt{equations()}.
+
+\begin{table}[!ht]
+\centering
+\caption{The 9 Evaluated Methods}
+\label{tab:methods}
+\begin{tabular}{@{}llccc@{}}
+\toprule
+\textbf{ID} & \textbf{Method} & \textbf{Type} & \textbf{Eq?} & \textbf{Noise} \\
+\midrule
+M1 & SINDy-Poly & Sparse & \checkmark & Med \\
+M2 & SINDy-Custom & Sparse & \checkmark & Low \\
+M3 & Bayesian SINDy & Bayesian & \checkmark & High \\
+M4 & PySR & Evolutionary & \checkmark & High \\
+M5 & Neural ODE & Neural & $\times$ & High \\
+M6 & PINN & Neural & $\times$ & High \\
+M7 & Grammar Symbolic & Evolutionary & \checkmark & Med \\
+M8 & PISF & Sparse & \checkmark & Med \\
+M9 & Ensemble SINDy & Ensemble & \checkmark & High \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{M1: SINDy with Polynomial Library}
+The standard SINDy approach \cite{brunton2016} constructs a library of polynomial basis functions up to degree 3:
+\begin{equation}
+\boldsymbol{\Theta}(\mathbf{X}) = [1, x_0, x_1, \ldots, x_0^2, x_0 x_1, \ldots, x_0^3, \ldots]
+\end{equation}
+and solves $\dot{\mathbf{X}} = \boldsymbol{\Theta}(\mathbf{X})\boldsymbol{\Xi}$ using the SR3 optimizer with $L_0$ regularization \cite{zheng2019} (threshold $\lambda = 0.1$). Derivatives are computed via \texttt{SmoothedFiniteDifference()}.
+
+\begin{lstlisting}[language=Python, caption={M1 Implementation (sindy\_poly.py)}]
+model = ps.SINDy(
+    feature_library=ps.PolynomialLibrary(3),
+    optimizer=ps.SR3(
+        reg_weight_lam=0.1, 
+        regularizer='L0'),
+    differentiation_method=
+        ps.SmoothedFiniteDifference()
+)
+model.fit(X, t=t, x_dot=Xdot)
+\end{lstlisting}
+
+\subsection{M2: SINDy with Custom Library}
+Extends M1 by adding trigonometric basis functions ($\sin(x_i)$, $\cos(x_i)$, $\sin(2x_i)$, $\cos(2x_i)$) to the polynomial library. This enables recovery of transcendental terms (e.g., pendulum) but dramatically increases the feature space dimension, causing severe collinearity on many systems.
+
+\subsection{M3: Bayesian SINDy}
+Replaces the SR3 optimizer with Bayesian Ridge Regression from scikit-learn \cite{tipping2001}. Each state derivative is regressed independently:
+\begin{equation}
+\dot{x}_i = \boldsymbol{\Theta}(\mathbf{X}) \cdot \boldsymbol{\xi}_i + \epsilon, \quad \epsilon \sim \mathcal{N}(0, \sigma^2)
+\end{equation}
+The Bayesian prior naturally enforces sparsity by driving irrelevant coefficients toward zero. A hard threshold of $|\xi_{ij}| < 0.01$ is applied post-hoc.
+
+\subsection{M4: PySR (Genetic Programming)}
+PySR \cite{cranmer2023} uses multi-population evolutionary search with binary operators $\{+, -, \times, /\}$ and unary operators $\{\sin, \cos, \exp\}$. Each state derivative is regressed independently with 40 iterations and maximum expression size of 20 nodes. PySR is the most computationally expensive method ($\sim$10 min per dimension) but is not restricted to a fixed basis.
+
+\subsection{M5: Neural ODE}
+A 3-layer MLP ($d_\text{in} \to 64 \to 64 \to d_\text{out}$) with $\tanh$ activations learns the dynamics $\dot{\mathbf{x}} = f_\theta(\mathbf{x})$ by minimizing:
+\begin{equation}
+\mathcal{L} = \frac{1}{N}\sum_{i=1}^{N} \|f_\theta(\mathbf{x}_i) - \dot{\mathbf{x}}_i\|^2
+\end{equation}
+Trained for 500 epochs with Adam optimizer (lr=$10^{-3}$) and cosine annealing. Simulation uses \texttt{solve\_ivp} with RK45. The neural network produces no symbolic equation output.
+
+\subsection{M6: Physics-Informed Neural Network (PINN)}
+Architecturally identical to M5 (MLP $d_\text{in} \to 64 \to 64 \to d_\text{out}$), trained with the same derivative-matching loss. In this implementation, M6 serves as a second neural baseline to assess variance between neural runs. Like M5, it produces no symbolic equations.
+
+\subsection{M7: Grammar-Constrained Symbolic Regression}
+Uses PySR with a restricted grammar that constrains the search to physically plausible expression structures. The grammar limits nesting depth and enforces dimensional consistency, which improves convergence on structured problems at the cost of flexibility.
+
+\subsection{M8: PISF (Physics-Informed Spline Fitting)}
+Applies adaptive spline smoothing to the state data before constructing the SINDy library. The smoothing acts as a built-in denoiser, making M8 more robust to moderate noise than M1. Uses SR3 with $L_0$ regularization.
+
+\subsection{M9: Ensemble SINDy}
+Fits $K = 10$ SINDy models on bootstrap-resampled subsets of the data and applies majority voting on the support (active terms). A coefficient is retained only if it appears in $>50\%$ of bootstraps. This provides uncertainty quantification and noise robustness.
+
+\section{Evaluation Framework}
+\label{sec:framework}
+
+\subsection{Experimental Pipeline}
+The benchmark follows a five-stage pipeline:
+\begin{enumerate}
+    \item \textbf{Physics Simulation:} Each system is integrated from canonical initial conditions using RK45 with adaptive step size, producing state trajectories $\mathbf{X} \in \mathbb{R}^{N \times d}$ and analytical derivatives $\dot{\mathbf{X}}_\text{true}$.
+    \item \textbf{Noise Injection:} Gaussian noise $\epsilon \sim \mathcal{N}(0, \sigma_n^2 \cdot \text{Var}(\mathbf{X}))$ is added to $\mathbf{X}$ at three levels: $\sigma_n \in \{0, 0.02, 0.05\}$.
+    \item \textbf{Derivative Computation:} For noisy data ($\sigma_n > 0$), empirical derivatives are computed via \texttt{SmoothedFiniteDifference()} rather than using the clean analytical target (see Section~\ref{sec:dataleak}).
+    \item \textbf{Method Execution:} Each method receives $(\mathbf{X}, \dot{\mathbf{X}}, t)$ and produces a fitted model.
+    \item \textbf{Evaluation:} The discovered model is simulated from the same initial condition as the true system, and metrics are computed by comparing true vs.\ predicted trajectories.
+\end{enumerate}
+
+\subsection{Metrics}
+
+\subsubsection{Normalized Mean Squared Error (NMSE)}
+The primary accuracy metric, defined as:
+\begin{equation}
+\text{NMSE} = \frac{\frac{1}{Nd}\sum_{i,j}(X_{ij}^\text{true} - X_{ij}^\text{pred})^2}{\text{Var}(\mathbf{X}^\text{true})}
+\end{equation}
+\textbf{Interpretation:} NMSE $< 0.01$ indicates near-perfect recovery. NMSE $\in [0.01, 0.5]$ indicates correct structure with coefficient error. NMSE $> 1.0$ indicates structural failure or divergence.
+
+\subsubsection{Integration Stability}
+A discovered equation is classified as \textbf{STABLE} if its forward simulation remains bounded ($|\mathbf{X}_\text{pred}| < 10^6$) over the full time horizon. Otherwise, it is classified as \textbf{UNSTABLE} with NMSE $= \infty$.
+
+\subsubsection{Rollout Error}
+Accumulated absolute deviation:
+\begin{equation}
+\text{Rollout} = \frac{1}{d}\sum_{j=1}^{d}\sum_{i=1}^{N} |X_{ij}^\text{true} - X_{ij}^\text{pred}|
+\end{equation}
+
+\subsubsection{Equation Complexity}
+The number of non-zero terms in the discovered equation. For SINDy variants, this is the count of non-zero coefficients. For PySR, this is the number of nodes in the expression tree.
+
+\subsection{Implementation Details}
+\begin{itemize}
+    \item \textbf{Language:} Python 3.10, PySINDy 2.1.0, PySR 0.18, PyTorch 2.1
+    \item \textbf{Hardware:} NVIDIA RTX 4060 GPU (8GB), Intel i7, 16GB RAM
+    \item \textbf{Timeouts:} SINDy variants: 30s per experiment. PySR: 600s. Neural: 120s.
+    \item \textbf{Total Runtime:} $\sim$5.7 hours ($\sim$20,500 seconds)
+    \item \textbf{Integration:} All simulations use \texttt{solve\_ivp} with RK45
+\end{itemize}
+
+\section{Experimental Results}
+\label{sec:results}
+
+We present results from 270 experiments (9 methods $\times$ 10 systems $\times$ 3 noise levels). Of these, \textbf{213 (78.9\%) achieved stable integration} and 57 (21.1\%) diverged.
+
+\subsection{Method Leaderboard}
+
+Table~\ref{tab:leaderboard} ranks methods by stability rate and mean NMSE across stable runs.
+
+\begin{table}[!ht]
+\centering
+\caption{Method Performance Summary (270 total runs)}
+\label{tab:leaderboard}
+\begin{tabular}{@{}llccr@{}}
+\toprule
+\textbf{Rank} & \textbf{Method} & \textbf{Stable} & \textbf{Rate} & \textbf{Mean NMSE} \\
+\midrule
+1 & M5 Neural ODE & 30/30 & 100\% & 0.7714 \\
+2 & M6 PINN & 30/30 & 100\% & 6.8154 \\
+3 & M4 PySR & 29/30 & 97\% & 1.1985 \\
+4 & M7 Grammar Sym. & 29/30 & 97\% & 0.8387 \\
+5 & M3 Bayesian SINDy & 25/30 & 83\% & 0.4972 \\
+6 & M1 SINDy-Poly & 24/30 & 80\% & 1.0925 \\
+7 & M9 Ensemble SINDy & 18/30 & 60\% & 1.1438 \\
+8 & M2 SINDy-Custom & 14/30 & 47\% & 0.6975 \\
+9 & M8 PISF & 14/30 & 47\% & 1.2855 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key observations:}
+\begin{itemize}
+    \item \textbf{Neural methods (M5, M6) achieve 100\% stability} but produce no symbolic equations. M5 has the lowest mean NMSE among neural methods (0.77).
+    \item \textbf{M3 Bayesian SINDy achieves the lowest mean NMSE (0.497)} among equation-producing methods with 83\% stability.
+    \item \textbf{M4 PySR and M7 Grammar achieve 97\% stability} with competitive NMSE, combining equation output with robustness.
+    \item \textbf{M2 SINDy-Custom and M8 PISF are the least stable (47\%)}. M2's expanded Fourier basis causes severe collinearity.
+\end{itemize}
+
+\subsection{System Difficulty Analysis}
+
+Table~\ref{tab:system_stability} shows stability rates per system across all methods.
+
+\begin{table}[!ht]
+\centering
+\caption{System Stability Rates (27 runs per system)}
+\label{tab:system_stability}
+\begin{tabular}{@{}llccl@{}}
+\toprule
+\textbf{ID} & \textbf{System} & \textbf{Stable} & \textbf{Rate} & \textbf{Difficulty} \\
+\midrule
+C2 & Duffing & 27/27 & 100\% & Easy \\
+E1 & Van der Pol & 27/27 & 100\% & Easy \\
+B2 & Pendulum & 26/27 & 96\% & Easy \\
+G2 & R\"{o}ssler & 25/27 & 93\% & Moderate \\
+A2 & Harmonic Osc. & 24/27 & 89\% & Moderate \\
+D1 & Forced Duffing & 21/27 & 78\% & Moderate \\
+F1 & Bouc--Wen I & 18/27 & 67\% & Hard \\
+F3 & Bouc--Wen 4D & 16/27 & 59\% & Hard \\
+F2 & Bouc--Wen II & 15/27 & 56\% & Hard \\
+G1 & Lorenz & 14/27 & 52\% & Hard \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{NMSE Heatmap: Method $\times$ System (Clean Data)}
+
+Table~\ref{tab:heatmap} shows NMSE values for each method-system pair on clean data. Cells marked ``U'' indicate unstable (diverged) integration.
+
+\begin{table*}[!ht]
+\centering
+\caption{NMSE Heatmap --- Clean Data Only. Bold indicates best per system. ``U'' = Unstable.}
+\label{tab:heatmap}
+\small
+\begin{tabular}{@{}l|cccccccccc@{}}
+\toprule
+\textbf{Method} & \textbf{A2} & \textbf{B2} & \textbf{C2} & \textbf{D1} & \textbf{E1} & \textbf{F1} & \textbf{F2} & \textbf{F3} & \textbf{G1} & \textbf{G2} \\
+\midrule
+M1 SINDy-Poly & \textbf{7.2e-7} & 2.11 & \textbf{0.00} & 2.17 & \textbf{9.1e-5} & 0.646 & U & U & 0.362 & 0.748 \\
+M2 SINDy-Custom & U & U & \textbf{0.00} & U & 3.5e-4 & U & U & U & \textbf{0.277} & 0.748 \\
+M3 Bayesian & 2.6e-2 & 5.3e-3 & \textbf{0.00} & 2.51 & 1.1e-4 & 0.063 & U & 0.942 & U & 2.50 \\
+M4 PySR & 2.3e-5 & \textbf{4.6e-3} & \textbf{0.00} & 1.76 & 2.3e-3 & 2.8e-3 & 4.8e-4 & 2.9e-4 & U & \textbf{2.4e-6} \\
+M5 Neural ODE & 9.0e-4 & 2.03 & 3.5e-13 & 0.516 & 1.74 & 0.013 & 0.012 & 5.1e-3 & 1.44 & 0.802 \\
+M6 PINN & 1.1e-3 & 2.78 & 2.3e-12 & 0.343 & 0.698 & 9.8e-3 & 0.011 & 0.013 & 184.5 & 2.09 \\
+M7 Grammar & 2.3e-5 & 4.6e-3 & \textbf{0.00} & \textbf{0.239} & 1.5e-3 & \textbf{3.2e-4} & \textbf{7.3e-5} & \textbf{4.4e-5} & 0.327 & 2.4e-6 \\
+M8 PISF & U & 2.29 & \textbf{0.00} & U & 1.95 & U & U & U & U & U \\
+M9 Ensemble & U & 2.11 & \textbf{0.00} & 2.18 & 6.8e-4 & 0.392 & U & U & U & 0.748 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Best Results Per System}
+
+\begin{itemize}
+    \item \textbf{A2 (Harmonic Oscillator):} M1 achieves NMSE $= 7.23 \times 10^{-7}$, recovering $\dot{x}_1 = -1.000 \cdot x_0$ almost exactly.
+    \item \textbf{B2 (Pendulum):} M4 PySR achieves NMSE $= 4.56 \times 10^{-3}$ via Taylor approximation of $\sin(\theta)$.
+    \item \textbf{C2 (Duffing):} 6 methods achieve NMSE $= 0.0$ (exact recovery of polynomial structure).
+    \item \textbf{D1 (Forced Duffing):} M7 achieves NMSE $= 0.239$; the forcing term $\cos(1.2t)$ makes exact recovery difficult.
+    \item \textbf{E1 (Van der Pol):} M1 achieves NMSE $= 9.14 \times 10^{-5}$, recovering $\dot{x}_1 = -0.999 x_0 + 2.005 x_1 - 2.002 x_0^2 x_1$ (true: $-x_0 + 2x_1 - 2x_0^2 x_1$).
+    \item \textbf{F1--F3 (Bouc--Wen):} M7 Grammar dominates with NMSE $\sim 10^{-4}$ to $10^{-5}$ on clean data. All polynomial methods fail (U or NMSE $> 0.5$) because $|x|$ is inexpressible in polynomial bases.
+    \item \textbf{G1 (Lorenz):} M2 achieves the best NMSE $= 0.277$ on clean data, but most methods fail at 5\% noise. Chaotic sensitivity makes long-horizon NMSE inherently high.
+    \item \textbf{G2 (R\"{o}ssler):} M4 and M7 achieve NMSE $= 2.35 \times 10^{-6}$, near-perfect recovery.
+\end{itemize}
+
+\subsection{Noise Degradation Analysis}
+
+Table~\ref{tab:noise_degradation} shows how NMSE degrades with noise for selected method-system pairs.
+
+\begin{table}[!ht]
+\centering
+\caption{Noise Degradation: NMSE at 0\%, 2\%, 5\% Noise}
+\label{tab:noise_degradation}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Method} & \textbf{System} & \textbf{Clean} & \textbf{2\%} & \textbf{5\%} \\
+\midrule
+M1 & A2 & $7.2\times10^{-7}$ & 0.011 & 1.999 \\
+M1 & E1 & $9.1\times10^{-5}$ & 0.176 & 0.977 \\
+M3 & A2 & 0.026 & 0.047 & 0.095 \\
+M4 & B2 & 0.005 & 0.011 & 0.024 \\
+M5 & E1 & 1.740 & 1.510 & 1.280 \\
+M7 & F1 & $3.2\times10^{-4}$ & 0.001 & 0.004 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key findings:}
+\begin{itemize}
+    \item \textbf{M1 SINDy-Poly} degrades dramatically: A2 goes from $10^{-7}$ to 2.0 at 5\% noise.
+    \item \textbf{M3 Bayesian SINDy} degrades gracefully: A2 goes from 0.026 to 0.095 at 5\% noise (3.6$\times$ vs.\ M1's $2.8\times10^6\times$).
+    \item \textbf{M4 PySR} maintains stability across noise levels for most systems.
+    \item \textbf{Neural methods (M5)} are noise-agnostic by design---NMSE is similar across noise levels.
+\end{itemize}
+
+\subsection{Equation Recovery: Worked Example (E1 Van der Pol)}
+
+The true Van der Pol equations are:
+\begin{align}
+\dot{x}_0 &= x_1 \\
+\dot{x}_1 &= 2(1 - x_0^2) x_1 - x_0
+\end{align}
+
+\textbf{M1 SINDy-Poly (clean, NMSE $= 9.1 \times 10^{-5}$):}
+\begin{align}
+\dot{x}_0 &= 1.000 \cdot x_1 \\
+\dot{x}_1 &= -0.999 x_0 + 2.005 x_1 - 2.002 x_0^2 x_1
+\end{align}
+This is a near-perfect recovery with $<0.3\%$ coefficient error.
+
+\textbf{M1 SINDy-Poly (5\% noise, NMSE $= 0.977$):}
+\begin{align}
+\dot{x}_0 &= 1.042 \cdot x_1 \\
+\dot{x}_1 &= -0.969 x_0 + 1.733 x_1 - 1.804 x_0^2 x_1
+\end{align}
+The correct structure is preserved but coefficients drift by $\sim$10\%.
+
+\textbf{M5 Neural ODE (any noise):}
+\begin{equation}
+\dot{\mathbf{x}} = f_\theta(\mathbf{x}), \quad \theta \in \mathbb{R}^{4866} \text{ (MLP weights)}
+\end{equation}
+No symbolic equation is produced.
+
+\section{Engineering Challenges and Solutions}
+\label{sec:engineering}
+
+During development, two critical failure modes were discovered that caused widespread crashes across the benchmark. Both required non-trivial engineering solutions.
+
+\subsection{The Collinearity Explosion}
+\label{sec:collinearity}
+
+\subsubsection{Problem}
+The default SINDy optimizer (STLSQ) solves $\dot{\mathbf{X}} = \boldsymbol{\Theta}\boldsymbol{\Xi}$ using iterative thresholded least squares. On periodic systems (A2, E1), the polynomial basis matrix $\boldsymbol{\Theta}$ becomes nearly rank-deficient because monomials like $x_0^2$, $x_0 x_1$, $x_1^2$ are near-collinear on circular trajectories:
+\begin{equation}
+\text{cond}(\boldsymbol{\Theta}^T\boldsymbol{\Theta}) > 10^{12}
+\end{equation}
+This causes STLSQ to spread coefficient mass across many correlated terms, producing equations with 18--45 non-zero terms instead of the correct 2--4. These bloated equations diverge violently upon simulation.
+
+\subsubsection{Example}
+On A2 (clean data), STLSQ produced:
+\begin{align*}
+\dot{x}_0 &= 53.48 + 90.38 x_0 + 29.36 x_1 - 53.48 x_0^2 \\
+&\quad - 53.48 x_1^2 - 90.38 x_0^3 - 28.36 x_0^2 x_1 \ldots
+\end{align*}
+\textit{18 terms} instead of the true 1-term equation $\dot{x}_0 = x_1$.
+
+\subsubsection{Solution}
+Migrated all SINDy variants (M1, M2, M8, M9) from STLSQ to \textbf{SR3 with $L_0$ regularization} \cite{zheng2019}:
+\begin{equation}
+\min_{\boldsymbol{\Xi}} \|\dot{\mathbf{X}} - \boldsymbol{\Theta}\boldsymbol{\Xi}\|_2^2 + \lambda \|\boldsymbol{\Xi}\|_0
+\end{equation}
+The $L_0$ penalty directly minimizes the number of active terms, producing sparse solutions even under collinearity. This eliminated all STLSQ-related crashes and \textbf{reduced total benchmark runtime from 14 hours to 5.6 hours} (60\% reduction).
+
+\subsection{The Target Data Leak}
+\label{sec:dataleak}
+
+\subsubsection{Problem}
+A subtle but critical bug: when processing noisy data, the pipeline was passing:
+\begin{itemize}
+    \item \textbf{Input:} Noisy states $\mathbf{X}_\text{noisy} = \mathbf{X}_\text{true} + \epsilon$
+    \item \textbf{Target:} Clean analytical derivatives $\dot{\mathbf{X}}_\text{true}$
+\end{itemize}
+This creates an information asymmetry: the target contains information \textit{not present in the input}. The regression overfits to bridge this gap, producing coefficients that are systematically biased.
+
+\subsubsection{Manifestation}
+Methods would produce accurate-looking NMSE on training data but diverge catastrophically on rollout simulation. The discovered equations implicitly compensated for the noise gap rather than learning the true dynamics.
+
+\subsubsection{Solution}
+For all noisy experiments ($\sigma_n > 0$), derivatives are now computed empirically from the noisy data using \texttt{SmoothedFiniteDifference()}:
+\begin{equation}
+\dot{\mathbf{X}}_\text{empirical} = \text{SFD}(\mathbf{X}_\text{noisy}, t)
+\end{equation}
+This ensures input-target consistency. The smoothing kernel suppresses high-frequency noise while preserving the low-frequency dynamics.
+
+\begin{lstlisting}[language=Python, caption={Noise-aware derivative computation}]
+import pysindy as ps
+if noise > 0:
+    diff = ps.SmoothedFiniteDifference()
+    Xdot = diff(X, t=t)
+\end{lstlisting}
+
+\subsection{Non-Autonomous System Handling (D1)}
+
+The forced Duffing oscillator $\dot{x}_1 = f(x_0, x_1) + \gamma\cos(\omega t)$ is non-autonomous. Since SINDy operates on state-space features, time $t$ must be injected as an explicit state variable:
+\begin{equation}
+\mathbf{X}_\text{aug} = [x_0, x_1, t], \quad \dot{t} = 1
+\end{equation}
+This is implemented by appending a time column to the state matrix:
+
+\begin{lstlisting}[language=Python, caption={Time augmentation for non-autonomous D1}]
+if system_id == "D1":
+    t_feature = t.reshape(-1, 1)
+    X = np.hstack([X, t_feature])
+    Xdot = np.hstack([Xdot, np.ones((len(Xdot), 1))])
+\end{lstlisting}
+
+\subsection{Simulation Safeguards}
+
+Each method's forward simulation is executed in a separate thread with a per-method timeout (30--600 seconds). If the simulation exceeds its timeout or produces values $> 10^6$, it is terminated and marked UNSTABLE:
+
+\begin{lstlisting}[language=Python, caption={Thread-based simulation timeout}]
+def simulate_with_timeout(model, x0, t, timeout_sec):
+    result = [None]
+    def worker():
+        result[0] = model.simulate(x0, t)
+    th = threading.Thread(target=worker, daemon=True)
+    th.start()
+    th.join(timeout=timeout_sec)
+    return result[0] if not th.is_alive() else None
+\end{lstlisting}
+
+\section{Interactive Dashboard}
+\label{sec:dashboard}
+
+A key deliverable of this project is a self-contained HTML dashboard (\texttt{benchmark\_report.html}) that provides interactive exploration of all 270 experimental results without requiring any backend server.
+
+\subsection{Architecture}
+The dashboard is a single 222KB HTML file embedding all benchmark data as a JSON object. It uses:
+\begin{itemize}
+    \item \textbf{Fonts:} Space Grotesk (headings), Inter (body), JetBrains Mono (code/equations)
+    \item \textbf{Design:} Dark-mode glassmorphism with backdrop-filter blur
+    \item \textbf{Data:} Embedded JSON array of 270 result objects
+    \item \textbf{Rendering:} Pure JavaScript with HTML5 Canvas for trajectory plots
+\end{itemize}
+
+\subsection{Tab 1: Results Explorer}
+The main tab displays each experiment as a card showing:
+\begin{itemize}
+    \item Method name and system (with human-readable names, e.g., ``Damped Oscillator'' instead of ``A2'')
+    \item NMSE value with color-coded badge (green $< 0.01$, yellow $< 0.5$, red $\geq 0.5$)
+    \item Stability status (STABLE/UNSTABLE)
+    \item True equation vs.\ discovered equation, side by side
+    \item Rollout error and complexity count
+\end{itemize}
+Interactive filters allow selection by method, system, noise level, and status. Results can be sorted by NMSE ascending/descending.
+
+\subsection{Tab 2: Whitepaper \& Story}
+A narrative-driven tab containing:
+\begin{itemize}
+    \item \textbf{Project Motivation:} The core question and SciML context
+    \item \textbf{Methodology:} 9-method comparison table with descriptions
+    \item \textbf{Physical Systems:} 10-system table with equations and parameters
+    \item \textbf{Engineering Challenges:} Collinearity explosion and target data leak explanations with before/after code examples
+    \item \textbf{Key Findings:} Interpretive summary of results
+\end{itemize}
+
+\subsection{Tab 3: Analytics}
+Advanced visualizations computed client-side from the embedded data:
+
+\subsubsection{NMSE Heatmap}
+A method $\times$ system matrix where each cell is color-coded from green (NMSE $\approx 0$) through yellow to red (NMSE $\gg 1$). Cells with unstable results are shown in dark gray.
+
+\subsubsection{Method Leaderboard}
+A ranked table showing stability rate, mean NMSE, and bar charts for each method. Methods are ranked by a composite score combining stability and accuracy.
+
+\subsubsection{Stability Rate Bars}
+Per-method bar chart showing the fraction of 30 experiments that achieved stable integration.
+
+\subsubsection{Trajectory Comparison Tool}
+An interactive HTML5 Canvas visualization that:
+\begin{enumerate}
+    \item Selects a system from a dropdown menu
+    \item Runs a browser-side RK4 integrator using the best discovered equation's coefficients
+    \item Overlays the true trajectory, best method trajectory, and worst method trajectory
+    \item Updates in real-time, allowing visual comparison of how different methods capture dynamics
+\end{enumerate}
+This is implemented entirely in JavaScript with no server dependency, making the dashboard fully portable.
+
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+\subsection{Summary of Findings}
+
+We have presented a comprehensive benchmark of 9 equation discovery methods across 10 dynamical systems at 3 noise levels (270 experiments). Our key findings are:
+
+\begin{enumerate}
+    \item \textbf{No single method dominates.} Grammar-constrained symbolic regression (M7) achieves the best clean-data NMSE on 5/10 systems but requires expensive evolutionary search. SINDy-Poly (M1) is fastest and perfect on polynomial systems but fails on transcendentals and hysteresis. Bayesian SINDy (M3) has the best mean NMSE among equation-producing methods.
+    
+    \item \textbf{The interpretability--stability tradeoff.} Neural methods (M5, M6) achieve 100\% stability but produce no symbolic equations. Symbolic methods achieve lower NMSE when they succeed but crash on 20--53\% of experiments.
+    
+    \item \textbf{Basis mismatch is the primary failure mode.} The Bouc--Wen hysteretic systems (F1--F3) expose a fundamental limitation: the absolute value function $|x|$ cannot be represented in polynomial or trigonometric bases. All sparse regression methods fail structurally on these systems.
+    
+    \item \textbf{Noise robustness varies dramatically.} M1 SINDy-Poly degrades by $10^6\times$ from clean to 5\% noise on A2. M3 Bayesian SINDy degrades by only $3.6\times$ on the same system. The Bayesian prior provides natural noise regularization.
+    
+    \item \textbf{Engineering matters as much as algorithms.} Migrating from STLSQ to SR3+$L_0$ eliminated collinearity crashes. Fixing the target data leak eliminated systematic overfitting on noisy data. These engineering improvements reduced runtime by 60\%.
+\end{enumerate}
+
+\subsection{Practical Recommendations}
+
+Based on our results, we provide the following practical guidance for practitioners:
+
+\begin{table}[!ht]
+\centering
+\caption{Method Selection Guide}
+\label{tab:recommendations}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Scenario} & \textbf{Recommended Method} \\
+\midrule
+Polynomial dynamics, low noise & M1 SINDy-Poly \\
+Unknown structure, clean data & M4 PySR or M7 Grammar \\
+Noisy data, sparse equations & M3 Bayesian SINDy \\
+Maximum stability required & M5 Neural ODE \\
+Hysteretic / memory systems & M7 Grammar (best available) \\
+Quick screening / baseline & M9 Ensemble SINDy \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Limitations}
+\begin{itemize}
+    \item Neural methods (M5, M6) use identical architectures; a more sophisticated PINN with physics loss would likely improve M6.
+    \item PySR (M4) results depend on random seed; multiple runs would provide uncertainty estimates.
+    \item The benchmark uses single trajectories per system; multi-trajectory training could improve robustness.
+    \item All systems are autonomous or periodically forced; stochastic systems and PDEs are not covered.
+\end{itemize}
+
+\subsection{Future Work}
+\begin{enumerate}
+    \item \textbf{Hybrid methods:} Use neural ODEs to identify active basis functions, then apply sparse regression for coefficient estimation.
+    \item \textbf{Adaptive basis discovery:} Automatically detect needed basis functions ($|x|$, $\operatorname{sgn}(x)$) via pre-screening.
+    \item \textbf{Multi-trajectory training:} Aggregate data from multiple initial conditions to improve robustness.
+    \item \textbf{Uncertainty quantification:} Extend the Bayesian framework to provide confidence intervals on discovered coefficients.
+    \item \textbf{Higher-dimensional systems:} Scale to 10+ dimensional systems from real-world engineering data.
+\end{enumerate}
+
+\subsection{Reproducibility}
+All code, data generation scripts, and pre-computed results (CSV and interactive HTML dashboard) are available at:
+\begin{center}
+\url{https://github.com/AtishayJain2503/UGP_Equation_Discovery}
+\end{center}
+The benchmark can be reproduced with:
+\begin{lstlisting}[language=bash]
+git clone https://github.com/AtishayJain2503/
+    UGP_Equation_Discovery.git
+cd UGP_Equation_Discovery
+pip install -r requirements.txt
+python -m experiments.generate_datasets
+python -m experiments.run_benchmark
+\end{lstlisting}
+
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{99}
+\bibitem{brunton2016} S.~L. Brunton, J.~L. Proctor, and J.~N. Kutz, ``Discovering governing equations from data by sparse identification of nonlinear dynamical systems,'' \textit{Proc. Natl. Acad. Sci.}, vol.~113, no.~15, pp.~3932--3937, 2016.
+\bibitem{cranmer2023} M.~Cranmer, ``Interpretable machine learning for science with PySR and SymbolicRegression.jl,'' \textit{arXiv preprint arXiv:2305.01582}, 2023.
+\bibitem{chen2018} R.~T.~Q. Chen, Y.~Rubanova, J.~Bettencourt, and D.~Duvenaud, ``Neural ordinary differential equations,'' in \textit{Advances in Neural Information Processing Systems}, 2018.
+\bibitem{raissi2019} M.~Raissi, P.~Perdikaris, and G.~E. Karniadakis, ``Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations,'' \textit{J. Comput. Phys.}, vol.~378, pp.~686--707, 2019.
+\bibitem{zheng2019} P.~Zheng, T.~Askham, S.~L. Brunton, J.~N. Kutz, and A.~Y. Aravkin, ``A unified framework for sparse relaxed regularized regression: SR3,'' \textit{IEEE Access}, vol.~7, pp.~1404--1423, 2019.
+\bibitem{boucwen1976} Y.~K. Wen, ``Method for random vibration of hysteretic systems,'' \textit{J. Eng. Mech. Div.}, vol.~102, no.~2, pp.~249--263, 1976.
+\bibitem{lorenz1963} E.~N. Lorenz, ``Deterministic nonperiodic flow,'' \textit{J. Atmos. Sci.}, vol.~20, no.~2, pp.~130--141, 1963.
+\bibitem{rossler1976} O.~E. R\"{o}ssler, ``An equation for continuous chaos,'' \textit{Phys. Lett. A}, vol.~57, no.~5, pp.~397--398, 1976.
+\bibitem{pysindy2022} A.~A. Kaptanoglu \textit{et al.}, ``PySINDy: A comprehensive Python package for robust sparse system identification,'' \textit{J. Open Source Softw.}, vol.~7, no.~69, p.~3994, 2022.
+\bibitem{tipping2001} M.~E. Tipping, ``Sparse Bayesian learning and the relevance vector machine,'' \textit{J. Mach. Learn. Res.}, vol.~1, pp.~211--244, 2001.
+\end{thebibliography}
+
+\end{document}
+

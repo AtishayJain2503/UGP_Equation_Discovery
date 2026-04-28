@@ -1,0 +1,42 @@
+\section{Evaluation Framework}
+\label{sec:framework}
+
+\subsection{Experimental Pipeline}
+The benchmark follows a five-stage pipeline:
+\begin{enumerate}
+    \item \textbf{Physics Simulation:} Each system is integrated from canonical initial conditions using RK45 with adaptive step size, producing state trajectories $\mathbf{X} \in \mathbb{R}^{N \times d}$ and analytical derivatives $\dot{\mathbf{X}}_\text{true}$.
+    \item \textbf{Noise Injection:} Gaussian noise $\epsilon \sim \mathcal{N}(0, \sigma_n^2 \cdot \text{Var}(\mathbf{X}))$ is added to $\mathbf{X}$ at three levels: $\sigma_n \in \{0, 0.02, 0.05\}$.
+    \item \textbf{Derivative Computation:} For noisy data ($\sigma_n > 0$), empirical derivatives are computed via \texttt{SmoothedFiniteDifference()} rather than using the clean analytical target (see Section~\ref{sec:dataleak}).
+    \item \textbf{Method Execution:} Each method receives $(\mathbf{X}, \dot{\mathbf{X}}, t)$ and produces a fitted model.
+    \item \textbf{Evaluation:} The discovered model is simulated from the same initial condition as the true system, and metrics are computed by comparing true vs.\ predicted trajectories.
+\end{enumerate}
+
+\subsection{Metrics}
+
+\subsubsection{Normalized Mean Squared Error (NMSE)}
+The primary accuracy metric, defined as:
+\begin{equation}
+\text{NMSE} = \frac{\frac{1}{Nd}\sum_{i,j}(X_{ij}^\text{true} - X_{ij}^\text{pred})^2}{\text{Var}(\mathbf{X}^\text{true})}
+\end{equation}
+\textbf{Interpretation:} NMSE $< 0.01$ indicates near-perfect recovery. NMSE $\in [0.01, 0.5]$ indicates correct structure with coefficient error. NMSE $> 1.0$ indicates structural failure or divergence.
+
+\subsubsection{Integration Stability}
+A discovered equation is classified as \textbf{STABLE} if its forward simulation remains bounded ($|\mathbf{X}_\text{pred}| < 10^6$) over the full time horizon. Otherwise, it is classified as \textbf{UNSTABLE} with NMSE $= \infty$.
+
+\subsubsection{Rollout Error}
+Accumulated absolute deviation:
+\begin{equation}
+\text{Rollout} = \frac{1}{d}\sum_{j=1}^{d}\sum_{i=1}^{N} |X_{ij}^\text{true} - X_{ij}^\text{pred}|
+\end{equation}
+
+\subsubsection{Equation Complexity}
+The number of non-zero terms in the discovered equation. For SINDy variants, this is the count of non-zero coefficients. For PySR, this is the number of nodes in the expression tree.
+
+\subsection{Implementation Details}
+\begin{itemize}
+    \item \textbf{Language:} Python 3.10, PySINDy 2.1.0, PySR 0.18, PyTorch 2.1
+    \item \textbf{Hardware:} NVIDIA RTX 4060 GPU (8GB), Intel i7, 16GB RAM
+    \item \textbf{Timeouts:} SINDy variants: 30s per experiment. PySR: 600s. Neural: 120s.
+    \item \textbf{Total Runtime:} $\sim$5.7 hours ($\sim$20,500 seconds)
+    \item \textbf{Integration:} All simulations use \texttt{solve\_ivp} with RK45
+\end{itemize}

@@ -1,0 +1,87 @@
+\section{Engineering Challenges and Solutions}
+\label{sec:engineering}
+
+During development, two critical failure modes were discovered that caused widespread crashes across the benchmark. Both required non-trivial engineering solutions.
+
+\subsection{The Collinearity Explosion}
+\label{sec:collinearity}
+
+\subsubsection{Problem}
+The default SINDy optimizer (STLSQ) solves $\dot{\mathbf{X}} = \boldsymbol{\Theta}\boldsymbol{\Xi}$ using iterative thresholded least squares. On periodic systems (A2, E1), the polynomial basis matrix $\boldsymbol{\Theta}$ becomes nearly rank-deficient because monomials like $x_0^2$, $x_0 x_1$, $x_1^2$ are near-collinear on circular trajectories:
+\begin{equation}
+\text{cond}(\boldsymbol{\Theta}^T\boldsymbol{\Theta}) > 10^{12}
+\end{equation}
+This causes STLSQ to spread coefficient mass across many correlated terms, producing equations with 18--45 non-zero terms instead of the correct 2--4. These bloated equations diverge violently upon simulation.
+
+\subsubsection{Example}
+On A2 (clean data), STLSQ produced:
+\begin{align*}
+\dot{x}_0 &= 53.48 + 90.38 x_0 + 29.36 x_1 - 53.48 x_0^2 \\
+&\quad - 53.48 x_1^2 - 90.38 x_0^3 - 28.36 x_0^2 x_1 \ldots
+\end{align*}
+\textit{18 terms} instead of the true 1-term equation $\dot{x}_0 = x_1$.
+
+\subsubsection{Solution}
+Migrated all SINDy variants (M1, M2, M8, M9) from STLSQ to \textbf{SR3 with $L_0$ regularization} \cite{zheng2019}:
+\begin{equation}
+\min_{\boldsymbol{\Xi}} \|\dot{\mathbf{X}} - \boldsymbol{\Theta}\boldsymbol{\Xi}\|_2^2 + \lambda \|\boldsymbol{\Xi}\|_0
+\end{equation}
+The $L_0$ penalty directly minimizes the number of active terms, producing sparse solutions even under collinearity. This eliminated all STLSQ-related crashes and \textbf{reduced total benchmark runtime from 14 hours to 5.6 hours} (60\% reduction).
+
+\subsection{The Target Data Leak}
+\label{sec:dataleak}
+
+\subsubsection{Problem}
+A subtle but critical bug: when processing noisy data, the pipeline was passing:
+\begin{itemize}
+    \item \textbf{Input:} Noisy states $\mathbf{X}_\text{noisy} = \mathbf{X}_\text{true} + \epsilon$
+    \item \textbf{Target:} Clean analytical derivatives $\dot{\mathbf{X}}_\text{true}$
+\end{itemize}
+This creates an information asymmetry: the target contains information \textit{not present in the input}. The regression overfits to bridge this gap, producing coefficients that are systematically biased.
+
+\subsubsection{Manifestation}
+Methods would produce accurate-looking NMSE on training data but diverge catastrophically on rollout simulation. The discovered equations implicitly compensated for the noise gap rather than learning the true dynamics.
+
+\subsubsection{Solution}
+For all noisy experiments ($\sigma_n > 0$), derivatives are now computed empirically from the noisy data using \texttt{SmoothedFiniteDifference()}:
+\begin{equation}
+\dot{\mathbf{X}}_\text{empirical} = \text{SFD}(\mathbf{X}_\text{noisy}, t)
+\end{equation}
+This ensures input-target consistency. The smoothing kernel suppresses high-frequency noise while preserving the low-frequency dynamics.
+
+\begin{lstlisting}[language=Python, caption={Noise-aware derivative computation}]
+import pysindy as ps
+if noise > 0:
+    diff = ps.SmoothedFiniteDifference()
+    Xdot = diff(X, t=t)
+\end{lstlisting}
+
+\subsection{Non-Autonomous System Handling (D1)}
+
+The forced Duffing oscillator $\dot{x}_1 = f(x_0, x_1) + \gamma\cos(\omega t)$ is non-autonomous. Since SINDy operates on state-space features, time $t$ must be injected as an explicit state variable:
+\begin{equation}
+\mathbf{X}_\text{aug} = [x_0, x_1, t], \quad \dot{t} = 1
+\end{equation}
+This is implemented by appending a time column to the state matrix:
+
+\begin{lstlisting}[language=Python, caption={Time augmentation for non-autonomous D1}]
+if system_id == "D1":
+    t_feature = t.reshape(-1, 1)
+    X = np.hstack([X, t_feature])
+    Xdot = np.hstack([Xdot, np.ones((len(Xdot), 1))])
+\end{lstlisting}
+
+\subsection{Simulation Safeguards}
+
+Each method's forward simulation is executed in a separate thread with a per-method timeout (30--600 seconds). If the simulation exceeds its timeout or produces values $> 10^6$, it is terminated and marked UNSTABLE:
+
+\begin{lstlisting}[language=Python, caption={Thread-based simulation timeout}]
+def simulate_with_timeout(model, x0, t, timeout_sec):
+    result = [None]
+    def worker():
+        result[0] = model.simulate(x0, t)
+    th = threading.Thread(target=worker, daemon=True)
+    th.start()
+    th.join(timeout=timeout_sec)
+    return result[0] if not th.is_alive() else None
+\end{lstlisting}

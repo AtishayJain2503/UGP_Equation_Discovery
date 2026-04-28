@@ -1,0 +1,62 @@
+\section{Benchmark Systems}
+\label{sec:systems}
+
+We curate 10 dynamical systems organized into 5 categories of increasing complexity. All systems are implemented as first-order ODE systems and integrated using the RK45 solver from SciPy. Table~\ref{tab:systems} summarizes the systems.
+
+\begin{table*}[!ht]
+\centering
+\caption{Benchmark Systems: 10 Dynamical Regimes Spanning 5 Complexity Categories}
+\label{tab:systems}
+\begin{tabular}{@{}llccll@{}}
+\toprule
+\textbf{ID} & \textbf{System} & \textbf{Dim} & \textbf{Category} & \textbf{Governing Equations} & \textbf{Primary Challenge} \\
+\midrule
+A2 & Damped Harmonic Oscillator & 2 & Linear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = -x_0$ & Baseline \\
+\midrule
+B2 & Large-Angle Pendulum & 2 & Nonlinear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = -9.81\sin(x_0) - 0.05 x_1$ & Transcendental $\sin(\cdot)$ \\
+\midrule
+C2 & Duffing Oscillator & 2 & Nonlinear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = -0.2 x_1 + x_0 - x_0^3$ & Cubic stiffness \\
+\midrule
+D1 & Forced Duffing & 2+$t$ & Forced &
+$\dot{x}_1 = -0.2 x_1 + x_0 - x_0^3 + 0.3\cos(1.2t)$ & Non-autonomous \\
+\midrule
+E1 & Van der Pol & 2 & Nonlinear &
+$\dot{x}_0 = x_1,\quad \dot{x}_1 = 2(1 - x_0^2)x_1 - x_0$ & Limit cycle \\
+\midrule
+F1 & Bouc--Wen I & 3 & Hysteretic &
+$\dot{x}_2 = x_1 - 0.5|x_1|x_2 - 0.5 x_1|x_2|$ & Memory / $|x|$ \\
+\midrule
+F2 & Bouc--Wen II & 3 & Hysteretic &
+$\dot{x}_2 = x_1 - 0.5|x_1||x_2|x_2 - 0.5 x_1|x_2|^2$ & Asymmetric hysteresis \\
+\midrule
+F3 & Bouc--Wen 4D & 4 & Hysteretic &
+$\dot{x}_2 = (1 - 0.05 x_3)x_1 - 0.5|x_1|x_2 - 0.5 x_1|x_2|$ & 4-state degrading \\
+\midrule
+G1 & Lorenz Attractor & 3 & Chaotic &
+$\dot{x}_0 = 10(x_1 - x_0),\ \dot{x}_1 = x_0(28 - x_2) - x_1$ & Sensitive dependence \\
+\midrule
+G2 & R\"{o}ssler Attractor & 3 & Chaotic &
+$\dot{x}_0 = -x_1 - x_2,\ \dot{x}_2 = 0.2 + x_2(x_0 - 5.7)$ & Phase-space folding \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Category A: Linear Dynamics}
+The Damped Harmonic Oscillator (A2) serves as a baseline. With $\dot{x}_0 = x_1$ and $\dot{x}_1 = -\omega^2 x_0$ ($\omega = 1$), this is the simplest possible second-order ODE. Any competent method should recover this law with NMSE $< 10^{-4}$.
+
+\subsection{Category B--E: Nonlinear and Forced Systems}
+The \textbf{Large-Angle Pendulum} (B2) introduces a transcendental nonlinearity ($\sin(\theta)$) that cannot be exactly represented by a polynomial basis. The \textbf{Duffing Oscillator} (C2) adds cubic stiffness ($-x_0^3$) to a linear oscillator. The \textbf{Forced Duffing} (D1) adds time-dependent forcing ($0.3\cos(1.2t)$), making the system non-autonomous. The \textbf{Van der Pol Oscillator} (E1) exhibits a stable limit cycle via the nonlinear damping term $\mu(1 - x_0^2)x_1$.
+
+\subsection{Category F: Hysteretic Systems}
+The Bouc--Wen family \cite{boucwen1976} models hysteretic restoring forces with internal memory states. The key challenge is that the governing equations contain $|x_1|$ (absolute value), which is \textit{fundamentally inexpressible} as a polynomial. This makes F1--F3 the hardest systems for polynomial-basis methods, not due to algorithmic limitations but due to basis mismatch.
+
+\textbf{F1} uses the standard Bouc--Wen formulation with parameters $A = 1$, $\beta = 0.5$, $\gamma = 0.5$. \textbf{F2} introduces asymmetric hysteresis with $|x_1||x_2|x_2$ and $x_1|x_2|^2$ terms. \textbf{F3} adds a degradation state variable $x_3$ coupled via $(1 - 0.05 x_3)x_1$, yielding a 4-dimensional system.
+
+\subsection{Category G: Chaotic Attractors}
+The \textbf{Lorenz Attractor} (G1) \cite{lorenz1963} is the canonical chaotic system with $\sigma = 10$, $\rho = 28$, $\beta = 8/3$. Even a perfectly recovered equation with 0.1\% coefficient error will yield NMSE $> 1$ at long horizons due to sensitive dependence on initial conditions. The \textbf{R\"{o}ssler Attractor} (G2) \cite{rossler1976} with $a = 0.2$, $b = 0.2$, $c = 5.7$ provides a second chaotic benchmark with a simpler structure.
+
+\subsection{Noise Model}
+Each system is tested at three noise levels: clean ($\sigma_n = 0$), moderate ($\sigma_n = 0.02 \cdot \text{std}(\mathbf{X})$), and high ($\sigma_n = 0.05 \cdot \text{std}(\mathbf{X})$). Gaussian noise is added to the state observations $\mathbf{X}$, not to the derivatives $\dot{\mathbf{X}}$.

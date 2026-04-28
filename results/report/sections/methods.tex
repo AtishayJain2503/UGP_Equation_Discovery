@@ -1,0 +1,76 @@
+\section{Equation Discovery Methods}
+\label{sec:methods}
+
+We evaluate 9 methods spanning 4 algorithmic paradigms. Table~\ref{tab:methods} provides an overview. All methods share the same API: \texttt{fit(X, Xdot, t)}, \texttt{simulate(x0, t)}, \texttt{equations()}.
+
+\begin{table}[!ht]
+\centering
+\caption{The 9 Evaluated Methods}
+\label{tab:methods}
+\begin{tabular}{@{}llccc@{}}
+\toprule
+\textbf{ID} & \textbf{Method} & \textbf{Type} & \textbf{Eq?} & \textbf{Noise} \\
+\midrule
+M1 & SINDy-Poly & Sparse & \checkmark & Med \\
+M2 & SINDy-Custom & Sparse & \checkmark & Low \\
+M3 & Bayesian SINDy & Bayesian & \checkmark & High \\
+M4 & PySR & Evolutionary & \checkmark & High \\
+M5 & Neural ODE & Neural & $\times$ & High \\
+M6 & PINN & Neural & $\times$ & High \\
+M7 & Grammar Symbolic & Evolutionary & \checkmark & Med \\
+M8 & PISF & Sparse & \checkmark & Med \\
+M9 & Ensemble SINDy & Ensemble & \checkmark & High \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{M1: SINDy with Polynomial Library}
+The standard SINDy approach \cite{brunton2016} constructs a library of polynomial basis functions up to degree 3:
+\begin{equation}
+\boldsymbol{\Theta}(\mathbf{X}) = [1, x_0, x_1, \ldots, x_0^2, x_0 x_1, \ldots, x_0^3, \ldots]
+\end{equation}
+and solves $\dot{\mathbf{X}} = \boldsymbol{\Theta}(\mathbf{X})\boldsymbol{\Xi}$ using the SR3 optimizer with $L_0$ regularization \cite{zheng2019} (threshold $\lambda = 0.1$). Derivatives are computed via \texttt{SmoothedFiniteDifference()}.
+
+\begin{lstlisting}[language=Python, caption={M1 Implementation (sindy\_poly.py)}]
+model = ps.SINDy(
+    feature_library=ps.PolynomialLibrary(3),
+    optimizer=ps.SR3(
+        reg_weight_lam=0.1, 
+        regularizer='L0'),
+    differentiation_method=
+        ps.SmoothedFiniteDifference()
+)
+model.fit(X, t=t, x_dot=Xdot)
+\end{lstlisting}
+
+\subsection{M2: SINDy with Custom Library}
+Extends M1 by adding trigonometric basis functions ($\sin(x_i)$, $\cos(x_i)$, $\sin(2x_i)$, $\cos(2x_i)$) to the polynomial library. This enables recovery of transcendental terms (e.g., pendulum) but dramatically increases the feature space dimension, causing severe collinearity on many systems.
+
+\subsection{M3: Bayesian SINDy}
+Replaces the SR3 optimizer with Bayesian Ridge Regression from scikit-learn \cite{tipping2001}. Each state derivative is regressed independently:
+\begin{equation}
+\dot{x}_i = \boldsymbol{\Theta}(\mathbf{X}) \cdot \boldsymbol{\xi}_i + \epsilon, \quad \epsilon \sim \mathcal{N}(0, \sigma^2)
+\end{equation}
+The Bayesian prior naturally enforces sparsity by driving irrelevant coefficients toward zero. A hard threshold of $|\xi_{ij}| < 0.01$ is applied post-hoc.
+
+\subsection{M4: PySR (Genetic Programming)}
+PySR \cite{cranmer2023} uses multi-population evolutionary search with binary operators $\{+, -, \times, /\}$ and unary operators $\{\sin, \cos, \exp\}$. Each state derivative is regressed independently with 40 iterations and maximum expression size of 20 nodes. PySR is the most computationally expensive method ($\sim$10 min per dimension) but is not restricted to a fixed basis.
+
+\subsection{M5: Neural ODE}
+A 3-layer MLP ($d_\text{in} \to 64 \to 64 \to d_\text{out}$) with $\tanh$ activations learns the dynamics $\dot{\mathbf{x}} = f_\theta(\mathbf{x})$ by minimizing:
+\begin{equation}
+\mathcal{L} = \frac{1}{N}\sum_{i=1}^{N} \|f_\theta(\mathbf{x}_i) - \dot{\mathbf{x}}_i\|^2
+\end{equation}
+Trained for 500 epochs with Adam optimizer (lr=$10^{-3}$) and cosine annealing. Simulation uses \texttt{solve\_ivp} with RK45. The neural network produces no symbolic equation output.
+
+\subsection{M6: Physics-Informed Neural Network (PINN)}
+Architecturally identical to M5 (MLP $d_\text{in} \to 64 \to 64 \to d_\text{out}$), trained with the same derivative-matching loss. In this implementation, M6 serves as a second neural baseline to assess variance between neural runs. Like M5, it produces no symbolic equations.
+
+\subsection{M7: Grammar-Constrained Symbolic Regression}
+Uses PySR with a restricted grammar that constrains the search to physically plausible expression structures. The grammar limits nesting depth and enforces dimensional consistency, which improves convergence on structured problems at the cost of flexibility.
+
+\subsection{M8: PISF (Physics-Informed Spline Fitting)}
+Applies adaptive spline smoothing to the state data before constructing the SINDy library. The smoothing acts as a built-in denoiser, making M8 more robust to moderate noise than M1. Uses SR3 with $L_0$ regularization.
+
+\subsection{M9: Ensemble SINDy}
+Fits $K = 10$ SINDy models on bootstrap-resampled subsets of the data and applies majority voting on the support (active terms). A coefficient is retained only if it appears in $>50\%$ of bootstraps. This provides uncertainty quantification and noise robustness.

@@ -1,0 +1,82 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{colortbl}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.95}
+\definecolor{stablegreen}{rgb}{0.06,0.73,0.50}
+\definecolor{unstablered}{rgb}{0.96,0.25,0.37}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codepurple},
+    numberstyle=\tiny\color{codegray},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    captionpos=b
+}
+\lstset{style=mystyle}
+
+\begin{document}
+
+\title{Benchmarking Equation Discovery Methods for\\Nonlinear Dynamical Systems: A Comprehensive\\Evaluation of Sparse, Evolutionary, and Neural Approaches}
+
+\author{
+\IEEEauthorblockN{Atishay Jain}
+\IEEEauthorblockA{Department of Computer Science\\
+Indian Institute of Technology\\
+Undergraduate Project (UGP)\\
+Email: atishay.jain@example.com}
+}
+
+\maketitle
+
+\begin{abstract}
+We present a systematic benchmarking framework for evaluating nine equation discovery methods across ten nonlinear dynamical systems at three noise levels, totalling 270 controlled experiments. The methods span sparse regression (SINDy variants, PISF, Ensemble SINDy), evolutionary symbolic regression (PySR, Grammar-Constrained), Bayesian inference, and neural approaches (Neural ODE, PINN). The benchmark systems range from linear oscillators through limit-cycle dynamics and hysteretic memory systems to three-dimensional chaotic attractors (Lorenz, R\"{o}ssler). We evaluate each method on Normalized Mean Squared Error (NMSE), integration stability, rollout error, and equation sparsity. Our results reveal that (i) Grammar-Constrained Symbolic Regression (M7) achieves the best clean-data NMSE on 5 of 10 systems, (ii) Neural ODE and PINN achieve 100\% stability but produce no symbolic equations, (iii) all polynomial-basis methods fail structurally on hysteretic (Bouc--Wen) systems due to the inexpressibility of $|x|$ in polynomial bases, and (iv) migrating from STLSQ to SR3 with $L_0$ regularization eliminated catastrophic collinearity crashes and reduced total runtime from 14 hours to 5.6 hours. The framework, interactive dashboard, and all results are publicly available.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Equation Discovery, SINDy, Symbolic Regression, Neural ODE, PINN, Scientific Machine Learning, Dynamical Systems, Sparse Regression, Benchmark
+\end{IEEEkeywords}
+
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/benchmark_systems}
+\input{sections/methods}
+\input{sections/framework}
+\input{sections/results}
+\input{sections/engineering}
+\input{sections/dashboard}
+\input{sections/conclusion}
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{99}
+\bibitem{brunton2016} S.~L. Brunton, J.~L. Proctor, and J.~N. Kutz, ``Discovering governing equations from data by sparse identification of nonlinear dynamical systems,'' \textit{Proc. Natl. Acad. Sci.}, vol.~113, no.~15, pp.~3932--3937, 2016.
+\bibitem{cranmer2023} M.~Cranmer, ``Interpretable machine learning for science with PySR and SymbolicRegression.jl,'' \textit{arXiv preprint arXiv:2305.01582}, 2023.
+\bibitem{chen2018} R.~T.~Q. Chen, Y.~Rubanova, J.~Bettencourt, and D.~Duvenaud, ``Neural ordinary differential equations,'' in \textit{Advances in Neural Information Processing Systems}, 2018.
+\bibitem{raissi2019} M.~Raissi, P.~Perdikaris, and G.~E. Karniadakis, ``Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations,'' \textit{J. Comput. Phys.}, vol.~378, pp.~686--707, 2019.
+\bibitem{zheng2019} P.~Zheng, T.~Askham, S.~L. Brunton, J.~N. Kutz, and A.~Y. Aravkin, ``A unified framework for sparse relaxed regularized regression: SR3,'' \textit{IEEE Access}, vol.~7, pp.~1404--1423, 2019.
+\bibitem{boucwen1976} Y.~K. Wen, ``Method for random vibration of hysteretic systems,'' \textit{J. Eng. Mech. Div.}, vol.~102, no.~2, pp.~249--263, 1976.
+\bibitem{lorenz1963} E.~N. Lorenz, ``Deterministic nonperiodic flow,'' \textit{J. Atmos. Sci.}, vol.~20, no.~2, pp.~130--141, 1963.
+\bibitem{rossler1976} O.~E. R\"{o}ssler, ``An equation for continuous chaos,'' \textit{Phys. Lett. A}, vol.~57, no.~5, pp.~397--398, 1976.
+\bibitem{pysindy2022} A.~A. Kaptanoglu \textit{et al.}, ``PySINDy: A comprehensive Python package for robust sparse system identification,'' \textit{J. Open Source Softw.}, vol.~7, no.~69, p.~3994, 2022.
+\bibitem{tipping2001} M.~E. Tipping, ``Sparse Bayesian learning and the relevance vector machine,'' \textit{J. Mach. Learn. Res.}, vol.~1, pp.~211--244, 2001.
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,56 @@
+\section{Interactive Dashboard}
+\label{sec:dashboard}
+
+A key deliverable of this project is a self-contained HTML dashboard (\texttt{benchmark\_report.html}) that provides interactive exploration of all 270 experimental results without requiring any backend server.
+
+\subsection{Architecture}
+The dashboard is a single 222KB HTML file embedding all benchmark data as a JSON object. It uses:
+\begin{itemize}
+    \item \textbf{Fonts:} Space Grotesk (headings), Inter (body), JetBrains Mono (code/equations)
+    \item \textbf{Design:} Dark-mode glassmorphism with backdrop-filter blur
+    \item \textbf{Data:} Embedded JSON array of 270 result objects
+    \item \textbf{Rendering:} Pure JavaScript with HTML5 Canvas for trajectory plots
+\end{itemize}
+
+\subsection{Tab 1: Results Explorer}
+The main tab displays each experiment as a card showing:
+\begin{itemize}
+    \item Method name and system (with human-readable names, e.g., ``Damped Oscillator'' instead of ``A2'')
+    \item NMSE value with color-coded badge (green $< 0.01$, yellow $< 0.5$, red $\geq 0.5$)
+    \item Stability status (STABLE/UNSTABLE)
+    \item True equation vs.\ discovered equation, side by side
+    \item Rollout error and complexity count
+\end{itemize}
+Interactive filters allow selection by method, system, noise level, and status. Results can be sorted by NMSE ascending/descending.
+
+\subsection{Tab 2: Whitepaper \& Story}
+A narrative-driven tab containing:
+\begin{itemize}
+    \item \textbf{Project Motivation:} The core question and SciML context
+    \item \textbf{Methodology:} 9-method comparison table with descriptions
+    \item \textbf{Physical Systems:} 10-system table with equations and parameters
+    \item \textbf{Engineering Challenges:} Collinearity explosion and target data leak explanations with before/after code examples
+    \item \textbf{Key Findings:} Interpretive summary of results
+\end{itemize}
+
+\subsection{Tab 3: Analytics}
+Advanced visualizations computed client-side from the embedded data:
+
+\subsubsection{NMSE Heatmap}
+A method $\times$ system matrix where each cell is color-coded from green (NMSE $\approx 0$) through yellow to red (NMSE $\gg 1$). Cells with unstable results are shown in dark gray.
+
+\subsubsection{Method Leaderboard}
+A ranked table showing stability rate, mean NMSE, and bar charts for each method. Methods are ranked by a composite score combining stability and accuracy.
+
+\subsubsection{Stability Rate Bars}
+Per-method bar chart showing the fraction of 30 experiments that achieved stable integration.
+
+\subsubsection{Trajectory Comparison Tool}
+An interactive HTML5 Canvas visualization that:
+\begin{enumerate}
+    \item Selects a system from a dropdown menu
+    \item Runs a browser-side RK4 integrator using the best discovered equation's coefficients
+    \item Overlays the true trajectory, best method trajectory, and worst method trajectory
+    \item Updates in real-time, allowing visual comparison of how different methods capture dynamics
+\end{enumerate}
+This is implemented entirely in JavaScript with no server dependency, making the dashboard fully portable.

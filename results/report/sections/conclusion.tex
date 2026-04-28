@@ -1,0 +1,72 @@
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+\subsection{Summary of Findings}
+
+We have presented a comprehensive benchmark of 9 equation discovery methods across 10 dynamical systems at 3 noise levels (270 experiments). Our key findings are:
+
+\begin{enumerate}
+    \item \textbf{No single method dominates.} Grammar-constrained symbolic regression (M7) achieves the best clean-data NMSE on 5/10 systems but requires expensive evolutionary search. SINDy-Poly (M1) is fastest and perfect on polynomial systems but fails on transcendentals and hysteresis. Bayesian SINDy (M3) has the best mean NMSE among equation-producing methods.
+    
+    \item \textbf{The interpretability--stability tradeoff.} Neural methods (M5, M6) achieve 100\% stability but produce no symbolic equations. Symbolic methods achieve lower NMSE when they succeed but crash on 20--53\% of experiments.
+    
+    \item \textbf{Basis mismatch is the primary failure mode.} The Bouc--Wen hysteretic systems (F1--F3) expose a fundamental limitation: the absolute value function $|x|$ cannot be represented in polynomial or trigonometric bases. All sparse regression methods fail structurally on these systems.
+    
+    \item \textbf{Noise robustness varies dramatically.} M1 SINDy-Poly degrades by $10^6\times$ from clean to 5\% noise on A2. M3 Bayesian SINDy degrades by only $3.6\times$ on the same system. The Bayesian prior provides natural noise regularization.
+    
+    \item \textbf{Engineering matters as much as algorithms.} Migrating from STLSQ to SR3+$L_0$ eliminated collinearity crashes. Fixing the target data leak eliminated systematic overfitting on noisy data. These engineering improvements reduced runtime by 60\%.
+\end{enumerate}
+
+\subsection{Practical Recommendations}
+
+Based on our results, we provide the following practical guidance for practitioners:
+
+\begin{table}[!ht]
+\centering
+\caption{Method Selection Guide}
+\label{tab:recommendations}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Scenario} & \textbf{Recommended Method} \\
+\midrule
+Polynomial dynamics, low noise & M1 SINDy-Poly \\
+Unknown structure, clean data & M4 PySR or M7 Grammar \\
+Noisy data, sparse equations & M3 Bayesian SINDy \\
+Maximum stability required & M5 Neural ODE \\
+Hysteretic / memory systems & M7 Grammar (best available) \\
+Quick screening / baseline & M9 Ensemble SINDy \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Limitations}
+\begin{itemize}
+    \item Neural methods (M5, M6) use identical architectures; a more sophisticated PINN with physics loss would likely improve M6.
+    \item PySR (M4) results depend on random seed; multiple runs would provide uncertainty estimates.
+    \item The benchmark uses single trajectories per system; multi-trajectory training could improve robustness.
+    \item All systems are autonomous or periodically forced; stochastic systems and PDEs are not covered.
+\end{itemize}
+
+\subsection{Future Work}
+\begin{enumerate}
+    \item \textbf{Hybrid methods:} Use neural ODEs to identify active basis functions, then apply sparse regression for coefficient estimation.
+    \item \textbf{Adaptive basis discovery:} Automatically detect needed basis functions ($|x|$, $\operatorname{sgn}(x)$) via pre-screening.
+    \item \textbf{Multi-trajectory training:} Aggregate data from multiple initial conditions to improve robustness.
+    \item \textbf{Uncertainty quantification:} Extend the Bayesian framework to provide confidence intervals on discovered coefficients.
+    \item \textbf{Higher-dimensional systems:} Scale to 10+ dimensional systems from real-world engineering data.
+\end{enumerate}
+
+\subsection{Reproducibility}
+All code, data generation scripts, and pre-computed results (CSV and interactive HTML dashboard) are available at:
+\begin{center}
+\url{https://github.com/AtishayJain2503/UGP_Equation_Discovery}
+\end{center}
+The benchmark can be reproduced with:
+\begin{lstlisting}[language=bash]
+git clone https://github.com/AtishayJain2503/
+    UGP_Equation_Discovery.git
+cd UGP_Equation_Discovery
+pip install -r requirements.txt
+python -m experiments.generate_datasets
+python -m experiments.run_benchmark
+\end{lstlisting}
